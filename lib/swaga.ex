@@ -55,11 +55,12 @@ defmodule Swaga do
   end
 
   def ec_eq do
-    f1 = FieldElement.new(3, 10)
-    f2 = FieldElement.new(2, 10)
+    f1 = FieldElement.new(3, 31)
+    f2 = FieldElement.new(24, 31)
     #    FieldElement.equal?(f1, f2)
     #    FieldElement.add(f1, f2)
     #    FieldElement.sub(f1, f2)
-    FieldElement.mul(f1, f2)
+    #    FieldElement.mul(f1, f2)
+    FieldElement.div(f1, f2)
   end
 end

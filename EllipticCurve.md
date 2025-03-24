@@ -118,4 +118,16 @@ b–1 = b(p–2)
 - 7/5 = 7⋅5(19 – 2) = 7 ** 517=5340576171875%19 = 9
   F31
   3/24 = 3 * 24**(31 - 2) //4
-  17^-3 => 
+  17^-3 => 17 ** (31 - 3 - 1) % 31 = 29
+- 4^–4 ⋅ 11 = 4 ** (31 - 5) % 31 * 11 % 31 => 13
+
+# Elliptic Curve
+
+Specifically, the elliptic curve used in Bitcoin is called secp256k1 and it uses this particular equation:
+
+`y2 = x3 + 7`
+
+# Point addition
+
+So, for any two points P1 = (x1,y1) and P2 = (x2,y2), we get P1 + P2 as follows:
+![img.png](img.png)

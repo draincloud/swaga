@@ -55,7 +55,18 @@ defmodule FieldElement do
 
   #  the exponent doesn’t have to be a member of the finite field for the math to work
   def pow(%FieldElement{num: num, prime: prime}, exponent) do
-    sum = rem(num ** exponent, prime)
-    new(sum, prime)
+    # exp % (p - 1) based on Fermat’s little theorem
+    n = Integer.mod(exponent, prime - 1)
+    num = Integer.mod(num ** n, prime)
+    new(num, prime)
+  end
+
+  def div(%FieldElement{num: num1, prime: prime}, %FieldElement{num: num2, prime: prime}) do
+    div_result = rem(num1 * num2 ** (prime - 2), prime)
+    new(div_result, prime)
+  end
+
+  def div(%FieldElement{}, %FieldElement{}) do
+    raise ArgumentError, "Prime must be the same"
   end
 end

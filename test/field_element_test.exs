@@ -19,4 +19,22 @@ defmodule FieldElementTest do
     f2 = FieldElement.new(7, 19)
     assert FieldElement.div(f1, f2) == FieldElement.new(3, 19)
   end
+
+  test "on_curve" do
+    x = FieldElement.new(192, 223)
+    y = FieldElement.new(105, 223)
+    assert FieldElement.on_curve(x, y) == true
+    x = FieldElement.new(17, 223)
+    y = FieldElement.new(56, 223)
+    assert FieldElement.on_curve(x, y) == true
+    x = FieldElement.new(200, 223)
+    y = FieldElement.new(119, 223)
+    assert FieldElement.on_curve(x, y) == false
+    x = FieldElement.new(1, 223)
+    y = FieldElement.new(193, 223)
+    assert FieldElement.on_curve(x, y) == true
+    x = FieldElement.new(42, 223)
+    y = FieldElement.new(99, 223)
+    assert FieldElement.on_curve(x, y) == false
+  end
 end

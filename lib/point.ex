@@ -165,7 +165,7 @@ defmodule Point do
   end
 
   defp mul(point, coefficient, result) do
-    new_result =
+    result =
       if Bitwise.band(coefficient, 1) == 1 do
         add(result, point)
       else
@@ -173,9 +173,9 @@ defmodule Point do
       end
 
     # double the point
-    new_point = add(point, point)
+    point = add(point, point)
     # shift coefficient right by 1
-    new_coef = Bitwise.bsr(coefficient, 1)
-    mul(new_point, new_coef, new_result)
+    coefficient = Bitwise.bsr(coefficient, 1)
+    mul(point, coefficient, result)
   end
 end

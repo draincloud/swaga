@@ -19,6 +19,10 @@ defmodule FieldElement do
     raise ArgumentError, "Not on curve, different prime"
   end
 
+  def new(nil, prime) do
+    %FieldElement{num: nil, prime: prime}
+  end
+
   def new(num, prime) when num >= prime or num < 0 do
     raise ArgumentError,
           "Cannot create field_element num=#{inspect(num)}, prime=#{inspect(prime)}"

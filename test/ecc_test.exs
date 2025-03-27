@@ -1,5 +1,3 @@
-import CustomOperators
-
 defmodule EccTest do
   use ExUnit.Case
   doctest Point
@@ -102,18 +100,82 @@ defmodule EccTest do
     assert %Point{x: x3, y: y3, a: a, b: b} == Point.add(p1, p2)
   end
 
-#  test "multiply points" do
-#    prime = 223
-#    s = 2
-#    a = FieldElement.new(0, prime)
-#    b = FieldElement.new(7, prime)
-#
-#    x1_raw = FieldElement.new(192, prime)
-#    y1_raw = FieldElement.new(105, prime)
-#    x2_raw = FieldElement.new(49, prime)
-#    y2_raw = FieldElement.new(71, prime)
-#    p1 = Point.new(x1_raw, y1_raw, a, b)
-#    p2 = Point.new(x2_raw, y2_raw, a, b)
-#    assert Point.mul(p1, s) == p2
-#  end
+  test "multiply points (2, 192, 105, 49, 71)" do
+    prime = 223
+    a = FieldElement.new(0, prime)
+    b = FieldElement.new(7, prime)
+
+    x1 = FieldElement.new(192, prime)
+    y1 = FieldElement.new(105, prime)
+    x2 = FieldElement.new(49, prime)
+    y2 = FieldElement.new(71, prime)
+    p1 = Point.new(x1, y1, a, b)
+    p2 = Point.new(x2, y2, a, b)
+    assert Point.mul(p1, 2) == p2
+  end
+  test "multiply points (2, 143, 98, 64, 168)" do
+    prime = 223
+    a = FieldElement.new(0, prime)
+    b = FieldElement.new(7, prime)
+
+    x1 = FieldElement.new(143, prime)
+    y1 = FieldElement.new(98, prime)
+    x2 = FieldElement.new(64, prime)
+    y2 = FieldElement.new(168, prime)
+    p1 = Point.new(x1, y1, a, b)
+    p2 = Point.new(x2, y2, a, b)
+    assert Point.mul(p1, 2) == p2
+  end
+  test "multiply points (2, 47, 71, 36, 111)" do
+    prime = 223
+    a = FieldElement.new(0, prime)
+    b = FieldElement.new(7, prime)
+
+    x1 = FieldElement.new(47, prime)
+    y1 = FieldElement.new(71, prime)
+    x2 = FieldElement.new(36, prime)
+    y2 = FieldElement.new(111, prime)
+    p1 = Point.new(x1, y1, a, b)
+    p2 = Point.new(x2, y2, a, b)
+    assert Point.mul(p1, 2) == p2
+  end
+  test "multiply points (4, 47, 71, 194, 51)" do
+    prime = 223
+    a = FieldElement.new(0, prime)
+    b = FieldElement.new(7, prime)
+
+    x1 = FieldElement.new(47, prime)
+    y1 = FieldElement.new(71, prime)
+    x2 = FieldElement.new(194, prime)
+    y2 = FieldElement.new(51, prime)
+    p1 = Point.new(x1, y1, a, b)
+    p2 = Point.new(x2, y2, a, b)
+    assert Point.mul(p1, 4) == p2
+  end
+  test "multiply points (8, 47, 71, 116, 55)" do
+    prime = 223
+    a = FieldElement.new(0, prime)
+    b = FieldElement.new(7, prime)
+
+    x1 = FieldElement.new(47, prime)
+    y1 = FieldElement.new(71, prime)
+    x2 = FieldElement.new(116, prime)
+    y2 = FieldElement.new(55, prime)
+    p1 = Point.new(x1, y1, a, b)
+    p2 = Point.new(x2, y2, a, b)
+    assert Point.mul(p1, 8) == p2
+  end
+  test "multiply points (21, 47, 71, None, None)" do
+    prime = 223
+    a = FieldElement.new(0, prime)
+    b = FieldElement.new(7, prime)
+
+    x1 = FieldElement.new(47, prime)
+    y1 = FieldElement.new(71, prime)
+    x2 = FieldElement.new(nil, prime)
+    y2 = FieldElement.new(nil, prime)
+    p1 = Point.new(x1, y1, a, b)
+    p2 = Point.new(x2, y2, a, b)
+    assert Point.mul(p1, 21) == p2
+  end
 end

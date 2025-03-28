@@ -54,4 +54,10 @@ defmodule Secp256Point do
     total = Point.add(mul(g, u), mul(point, v))
     total.x.num == sig.r
   end
+
+  def sec(%Secp256Point{x: x, y: y, a: a, b: b}) do
+    <<4>> <>
+      <<x::unsigned-big-integer-size(256)>> <>
+      <<y::unsigned-big-integer-size(256)>>
+  end
 end

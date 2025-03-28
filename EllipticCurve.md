@@ -247,3 +247,16 @@ To wit, here are the steps:
 - If R’s x coordinate equals r, the signature is valid.
 
 # Programming Message Signing
+
+- Private key module
+
+# Chapter 4. Serialization
+
+- Here is how the uncompressed SEC format for a given point P = (x,y) is generated:
+
+- Start with the prefix byte, which is 0x04.
+
+- Next, append the x coordinate in 32 bytes as a big-endian integer.
+
+- Next, append the y coordinate in 32 bytes as a big-endian integer.
+- 

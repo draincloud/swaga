@@ -10,9 +10,11 @@ defmodule Point do
         fe_y,
         fe_a,
         fe_b
-      ) when fe_x.num == nil and fe_y.num == nil do
+      )
+      when fe_x.num == nil and fe_y.num == nil do
     %Point{x: nil, y: nil, a: fe_a, b: fe_b}
   end
+
   def new(
         nil,
         nil,
@@ -28,7 +30,6 @@ defmodule Point do
         a,
         b
       ) do
-
     if fe_y.num == 0 do
       # Return the point at infinity
       %Point{x: nil, y: nil, a: a, b: b}

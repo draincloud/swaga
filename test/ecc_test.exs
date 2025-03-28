@@ -1,3 +1,6 @@
+require Logger
+import CustomOperators
+
 defmodule EccTest do
   use ExUnit.Case
   doctest Point
@@ -113,6 +116,7 @@ defmodule EccTest do
     p2 = Point.new(x2, y2, a, b)
     assert Point.mul(p1, 2) == p2
   end
+
   test "multiply points (2, 143, 98, 64, 168)" do
     prime = 223
     a = FieldElement.new(0, prime)
@@ -126,6 +130,7 @@ defmodule EccTest do
     p2 = Point.new(x2, y2, a, b)
     assert Point.mul(p1, 2) == p2
   end
+
   test "multiply points (2, 47, 71, 36, 111)" do
     prime = 223
     a = FieldElement.new(0, prime)
@@ -139,6 +144,7 @@ defmodule EccTest do
     p2 = Point.new(x2, y2, a, b)
     assert Point.mul(p1, 2) == p2
   end
+
   test "multiply points (4, 47, 71, 194, 51)" do
     prime = 223
     a = FieldElement.new(0, prime)
@@ -152,6 +158,7 @@ defmodule EccTest do
     p2 = Point.new(x2, y2, a, b)
     assert Point.mul(p1, 4) == p2
   end
+
   test "multiply points (8, 47, 71, 116, 55)" do
     prime = 223
     a = FieldElement.new(0, prime)
@@ -165,6 +172,7 @@ defmodule EccTest do
     p2 = Point.new(x2, y2, a, b)
     assert Point.mul(p1, 8) == p2
   end
+
   test "multiply points (21, 47, 71, None, None)" do
     prime = 223
     a = FieldElement.new(0, prime)
@@ -177,5 +185,26 @@ defmodule EccTest do
     p1 = Point.new(x1, y1, a, b)
     p2 = Point.new(x2, y2, a, b)
     assert Point.mul(p1, 21) == p2
+  end
+
+  @tag :important
+  test "verify signature using primitives" do
+    z = 0xBC62D4B80D9E36DA29C16C5D4D9F11731F36052C72401A76C23C0FB5A9B74423
+    r = 0x37206A0610995C58074999CB9767B87AF4C4978DB68C06E8E6E81D282047A7C6
+    s = 0x8CA63759C1157EBEAEC0D03CECCA119FC9A75BF8E6D0FA65C841C8E2738CDAEC
+    px = 0x04519FAC3D910CA7E7138F7013706F619FA8F033E6EC6E09370EA38CEE6A7574
+    py = 0x82B51EAB8C27C66E26C858A079BCDF4F1ADA34CEC420CAFC7EAC1A42216FB6C4
+    point = Secp256Point.new(px, py)
+    n = Secp256Point.n()
+    # Note that we use Fermat’s little theorem for 1/s, since n is prime.
+    s_inv = MathUtils.powmod(s, n - 2, n)
+    # u = z/s
+    u = rem(z * s_inv, n)
+    # v = r/s
+    v = rem(r * s_inv, n)
+    g = Secp256Point.get_g()
+    # uG + vP = (r,y). We need to check that the x coordinate is r.
+    res = Point.add(Secp256Point.mul(g, u), Secp256Point.mul(point, v))
+    assert res.x.num == r
   end
 end

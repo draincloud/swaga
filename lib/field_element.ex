@@ -78,13 +78,13 @@ defmodule FieldElement do
   def pow(%FieldElement{num: num, prime: prime}, exponent) do
     # exp % (p - 1) based on Fermat’s little theorem
     n = Integer.mod(exponent, prime - 1)
-    num = Integer.mod(num ** n, prime)
+    num = MathUtils.powmod(num, n, prime)
     new(num, prime)
   end
 
   def div(%FieldElement{num: num1, prime: prime}, %FieldElement{num: num2, prime: prime}) do
     #    Logger.debug("num1 #{inspect(num1)}; num2 #{inspect(num2)}")
-    pow_result = rem(num2 ** (prime - 2), prime)
+    pow_result = MathUtils.powmod(num2, prime - 2, prime)
     #    Logger.debug("pow_result #{inspect(pow_result)};")
 
     div_result = Integer.mod(num1 * pow_result, prime)

@@ -226,3 +226,24 @@ Gy =
 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
 
 n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+
+# Public Key Cryptography
+
+Generally, we call e the private key and P the public key. Note here that the private key is a single 256-bit number and
+the public key is a coordinate (x,y), where x and y are each 256-bit numbers.
+
+e = (k–u)/v
+
+To wit, here are the steps:
+
+- We are given (r,s) as the signature, z as the hash of the thing being signed, and P as the public key (or public
+  point)
+  of the signer.
+
+- We calculate u = z/s, v = r/s.
+
+- We calculate uG + vP = R.
+
+- If R’s x coordinate equals r, the signature is valid.
+
+# Programming Message Signing

@@ -55,9 +55,39 @@ defmodule Secp256Point do
     total.x.num == sig.r
   end
 
-  def sec(%Secp256Point{x: x, y: y, a: a, b: b}) do
+  def uncompressed_sec(%{
+        x: %FieldElement{num: num_x},
+        y: %FieldElement{num: num_y}
+      }) do
     <<4>> <>
-      <<x::unsigned-big-integer-size(256)>> <>
-      <<y::unsigned-big-integer-size(256)>>
+      <<num_x::unsigned-big-integer-size(256)>> <>
+      <<num_y::unsigned-big-integer-size(256)>>
+  end
+
+  def compressed_sec(is_even, %{x: %FieldElement{num: num_x}}) do
+    case is_even do
+      true -> <<2>> <> <<num_x::unsigned-big-integer-size(256)>>
+      false -> <<3>> <> <<num_x::unsigned-big-integer-size(256)>>
+    end
+  end
+
+  def parse(sec_bin = <<4, _rem::binary>>) do
+    <<_prefix, num_bytes::binary-size(32), num_bytes_rest::binary>> = sec_bin
+    new(
+      :binary.decode_unsigned(num_bytes, :big),
+      :binary.decode_unsigned(num_bytes_rest, :big)
+    )
+  end
+
+  def parse(sec_bin = <<2, _rem::binary>>) do
+    <<_prefix, num_bytes::binary-size(63)>> = sec_bin
+    new(
+      :binary.decode_unsigned(num_bytes, :big),
+      :binary.decode_unsigned(num_bytes_rest, :big)
+    )
+  end
+
+  def parse(sec_bin = <<3, _rem::binary>>) do
+
   end
 end

@@ -30,4 +30,8 @@ defmodule PrivateKey do
 
     %Signature{r: r, s: s}
   end
+
+  def extract_point(%PrivateKey{point: point}) do
+    point
+  end
 end

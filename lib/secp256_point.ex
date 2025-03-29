@@ -1,4 +1,5 @@
 require Logger
+import CustomOperators
 
 defmodule Secp256Point do
   @enforce_keys [:x, :y, :a, :b]
@@ -64,30 +65,66 @@ defmodule Secp256Point do
       <<num_y::unsigned-big-integer-size(256)>>
   end
 
-  def compressed_sec(is_even, %{x: %FieldElement{num: num_x}}) do
-    case is_even do
-      true -> <<2>> <> <<num_x::unsigned-big-integer-size(256)>>
-      false -> <<3>> <> <<num_x::unsigned-big-integer-size(256)>>
+  def compressed_sec(%{point: %{x: %{num: x}, y: %{num: y}}}) do
+    case rem(y, 2) == 0 do
+      true -> <<2>> <> <<x::unsigned-big-integer-size(256)>>
+      false -> <<3>> <> <<x::unsigned-big-integer-size(256)>>
     end
   end
 
+  def compressed_sec(%{x: %{num: x}, y: %{num: y}}) do
+    case rem(y, 2) == 0 do
+      true -> <<2>> <> <<x::unsigned-big-integer-size(256)>>
+      false -> <<3>> <> <<x::unsigned-big-integer-size(256)>>
+    end
+  end
+
+  # case for uncompressed
   def parse(sec_bin = <<4, _rem::binary>>) do
     <<_prefix, num_bytes::binary-size(32), num_bytes_rest::binary>> = sec_bin
+
     new(
       :binary.decode_unsigned(num_bytes, :big),
       :binary.decode_unsigned(num_bytes_rest, :big)
     )
   end
 
-  def parse(sec_bin = <<2, _rem::binary>>) do
-    <<_prefix, num_bytes::binary-size(63)>> = sec_bin
-    new(
-      :binary.decode_unsigned(num_bytes, :big),
-      :binary.decode_unsigned(num_bytes_rest, :big)
-    )
+  # case 2 or 3 (is_even or not)
+  def parse(<<is_even, x_num::binary>>) do
+    x = Secp256Field.new(x_num)
+    alpha = FieldElement.pow(x, 3) +++ Secp256Field.new(@b)
+    beta = Secp256Field.sqrt(alpha)
+    p = Secp256Field.p()
+
+    {even_beta, odd_beta} =
+      if rem(beta.num, 2) == 0 do
+        {beta, Secp256Field.new(p - beta.num)}
+      else
+        {Secp256Field.new(p - beta.num), beta}
+      end
+
+    case is_even == 2 do
+      true -> Secp256Point.new(x, even_beta)
+      false -> Secp256Point.new(x, odd_beta)
+    end
   end
 
-  def parse(sec_bin = <<3, _rem::binary>>) do
+  def address(point, is_compressed, is_testnet) do
+    sec =
+      case is_compressed do
+        true -> compressed_sec(point)
+        false -> uncompressed_sec(point)
+      end
 
+    h160 = CryptoUtils.hash160(sec)
+
+    prefix =
+      if is_testnet do
+        <<0x6F>>
+      else
+        <<0x00>>
+      end
+
+    Base58.encode_base58_checksum(prefix <> h160)
   end
 end

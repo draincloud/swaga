@@ -1,5 +1,4 @@
 require Logger
-import CustomOperators
 
 defmodule EccTest do
   use ExUnit.Case

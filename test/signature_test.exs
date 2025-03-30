@@ -6,7 +6,7 @@ defmodule SignatureTest do
 
   test "secret message signature" do
     e = 12345
-    z = MathUtils.hash_to_int(~c"Programming Bitcoin!")
+    z = CryptoUtils.double_hash_to_int(~c"Programming Bitcoin!")
     k = 1_234_567_890
     g = Secp256Point.get_g()
     n = Secp256Point.n()

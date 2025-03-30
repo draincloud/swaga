@@ -34,4 +34,34 @@ defmodule PrivateKey do
   def extract_point(%PrivateKey{point: point}) do
     point
   end
+
+  def wif(%PrivateKey{secret: secret}, compressed, is_testnet) do
+    secret = :binary.encode_unsigned(secret, :big)
+
+    secret_size = bit_size(secret)
+
+    secret =
+      if secret_size < 256 do
+        #        Logger.debug("secret #{inspect(secret)} bs-#{inspect(bit_size(secret))}")
+        <<0::size(256 - secret_size)>> <> secret
+      else
+        secret
+      end
+
+    prefix =
+      if is_testnet do
+        <<0xEF>>
+      else
+        <<0x80>>
+      end
+
+    suffix =
+      if compressed do
+        <<0x01>>
+      else
+        <<>>
+      end
+
+    Base58.encode_base58_checksum(prefix <> secret <> suffix)
+  end
 end

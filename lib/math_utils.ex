@@ -10,11 +10,19 @@ defmodule MathUtils do
     powmod(n, k, m, r)
   end
 
-  def hash_to_int(data) do
-    # Compute SHA-256 hash
-    hash = :crypto.hash(:sha256, data)
-    hash = :crypto.hash(:sha256, hash)
-    # Convert the binary hash to an integer using big-endian
-    :binary.decode_unsigned(hash, :big)
+  def little_endian_to_int(binary_data) do
+    :binary.decode_unsigned(binary_data, :little)
+  end
+
+  def int_to_little_endian(num, length) do
+    bin = :binary.encode_unsigned(num, :little)
+    bin_len = bit_size(bin)
+    length = length * 8
+
+    if bin_len < length do
+      <<0::size(length - bin_len)>> <> bin
+    else
+      bin
+    end
   end
 end

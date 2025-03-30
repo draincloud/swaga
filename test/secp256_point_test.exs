@@ -59,4 +59,10 @@ defmodule SignaturePointTest do
     address = Secp256Point.address(pk.point, true, false)
     assert address == "1F1Pn2y6pDb68E5nYJJeba4TLg2U7B6KF1"
   end
+
+  test "generate testnet address" do
+    pk = PrivateKey.new(15)
+    address = Secp256Point.address(pk.point, false, true)
+    assert address == "miUDLpH3GYv2uiuJYsETUBMn5vfNEo99ZF"
+  end
 end

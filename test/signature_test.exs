@@ -39,4 +39,26 @@ defmodule SignatureTest do
     assert Base.encode16(Signature.der(sig)) ==
              "3045022037206A0610995C58074999CB9767B87AF4C4978DB68C06E8E6E81D282047A7C60221008CA63759C1157EBEAEC0D03CECCA119FC9A75BF8E6D0FA65C841C8E2738CDAEC"
   end
+
+  test "signature parse" do
+    r = 1
+    s = 2
+    sig = Signature.new(r, s)
+    der = Signature.der(sig)
+    parsed = Signature.parse(der)
+    assert parsed.s == s
+    assert parsed.r == r
+
+    r =
+      57_509_597_772_029_177_000_993_205_587_095_472_161_177_561_285_426_387_940_133_649_654_308_587_609_843
+
+    s =
+      13_894_970_760_985_574_560_075_539_545_627_361_326_841_624_335_039_930_937_559_131_586_734_251_694_537
+
+    sig = Signature.new(r, s)
+    der = Signature.der(sig)
+    parsed = Signature.parse(der)
+    assert parsed.s == s
+    assert parsed.r == r
+  end
 end

@@ -40,4 +40,47 @@ defmodule Signature do
     result = result <> <<2, byte_size(sbin)>> <> sbin
     <<0x30, byte_size(result)>> <> result
   end
+
+  def parse(full_sig) do
+    <<first_compound, signature_bin::binary>> = full_sig
+
+    if first_compound != 0x30 do
+      raise "Bad signature first_compound equals #{inspect(first_compound)}"
+    end
+
+    <<length, signature_bin::binary>> = signature_bin
+
+    if length + 2 != byte_size(full_sig) do
+      raise "Bad signature length equals #{length + 2}, should be #{div(bit_size(signature_bin), 8)}"
+      raise "Bad signature length equals #{length + 2}, should be #{bit_size(signature_bin)}"
+    else
+    end
+
+    <<marker, signature_bin::binary>> = signature_bin
+
+    if marker != 0x02 do
+      raise "Bad marker equals #{marker}"
+    end
+
+    <<r_len, signature_bin::binary>> = signature_bin
+    <<r::binary-size(r_len), signature_bin::binary>> = signature_bin
+
+    <<marker, signature_bin::binary>> = signature_bin
+
+    if marker != 0x02 do
+      raise "Bad marker equals #{marker}"
+    end
+
+    <<s_len, signature_bin::binary>> = signature_bin
+    <<s::binary-size(s_len), _::binary>> = signature_bin
+
+    s = :binary.decode_unsigned(s, :big)
+    r = :binary.decode_unsigned(r, :big)
+
+    if byte_size(full_sig) != 6 + r_len + s_len do
+      raise "Signature too long #{byte_size(full_sig)}"
+    end
+
+    Signature.new(r, s)
+  end
 end

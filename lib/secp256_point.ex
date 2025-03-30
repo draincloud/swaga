@@ -10,6 +10,10 @@ defmodule Secp256Point do
   @a 0
   @b 7
 
+  def b do
+    @b
+  end
+
   def n do
     @n
   end

@@ -24,7 +24,7 @@ defmodule Base58 do
     result
   end
 
-  def encode_from_hex(binary) do
+  def encode_from_binary(binary) do
     zeros_len = count_zeros(binary)
     num = :binary.decode_unsigned(binary, :big)
     prefix = String.duplicate("1", zeros_len)
@@ -42,6 +42,6 @@ defmodule Base58 do
     double_hash = :crypto.hash(:sha256, :crypto.hash(:sha256, b))
     checksum = binary_part(double_hash, 0, 4)
     b = b <> checksum
-    encode_from_hex(b)
+    encode_from_binary(b)
   end
 end

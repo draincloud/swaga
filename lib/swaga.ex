@@ -1,3 +1,4 @@
+require Logger
 defmodule Swaga do
   @moduledoc """
   Documentation for `Swaga`.
@@ -12,6 +13,10 @@ defmodule Swaga do
       :world
 
   """
+
+  def start(type, args) do
+    Logger.debug("Start")
+  end
 
   def hello do
     :world

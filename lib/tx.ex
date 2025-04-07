@@ -45,11 +45,63 @@ defmodule Tx do
     # |> :binary.list_to_bin
   end
 
-  def parse(serialization) do
-    <<four_bites::binary-size(8), _resp::binary>> = serialization
+  def read_varint(<<0xfd, _::binary>>) do
+    MathUtils.little_endian_to_int(Base.decode16! 0xfd)
+  end
+
+  def read_varint(<<0xfe, _::binary>>) do
+    MathUtils.little_endian_to_int(Base.decode16! 0xfe)
+  end
+
+  def read_varint(<<0xff, _::binary>>) do
+    MathUtils.little_endian_to_int(Base.decode16! 0xff)
+  end
+
+  def read_varint(<<prefix, _::binary>>) do
+    prefix
+  end
+
+  def encode_varint(i) when i < 0xfd do
+    <<i>>
+  end
+
+  def encode_varint(i) when i < 0x10000 do
+    <<0xfd>> <> MathUtils.int_to_little_endian(i, 2)
+  end
+
+  def encode_varint(i) when i < 0x100000000 do
+    <<0xfe>> <> MathUtils.int_to_little_endian(i, 4)
+  end
+
+  def encode_varint(i) when i < 0x10000000000000000 do
+    <<0xff>> <> MathUtils.int_to_little_endian(i, 8)
+  end
+
+  def encode_varint(i) when i < 0x10000000000000000 do
+    raise "Integer too large"
+  end
+
+  def parse(serialized_tx) do
+    <<four_bites::binary-size(8), _resp::binary>> = serialized_tx
     :logger.debug("#{four_bites}")
     %Tx{
       version:  MathUtils.little_endian_to_int(Base.decode16! four_bites),
     }
+  end
+
+  def serialize(    %Tx{
+    version: version,
+    tx_ins: tx_ins,
+    tx_outs: tx_outs,
+    locktime: locktime,
+    testnet: testnet
+  }
+      ) do
+    result = MathUtils.int_to_little_endian()
+    result = result + encode_varint(length(tx_ins))
+    result = result + Enum.reduce(tx_ins, fn(x), acc -> x + acc end)
+    result = result + encode_varint(length(tx_outs))
+    result = result + Enum.reduce(tx_outs, fn(x), acc -> x + acc end)
+    result = result + MathUtils.int_to_little_endian(locktime, 4)
   end
 end

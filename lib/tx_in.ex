@@ -3,14 +3,14 @@ defmodule TxIn do
     :prev_tx,
     :prev_index,
     :script_sig,
-    :sequence,
+    :sequence
   ]
 
   defstruct [
     :prev_tx,
     :prev_index,
     :script_sig,
-    :sequence,
+    :sequence
   ]
 
   defimpl String.Chars, for: TxIn do
@@ -20,20 +20,24 @@ defmodule TxIn do
   end
 
   def new(prev_tx, prev_index) do
-#    script_sig = Script
+    #    script_sig = Script
     script_sig = 1
-    new(prev_tx, prev_index, script_sig, 0xffffffff)
+    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
   end
 
   def new(prev_tx, prev_index, script_sig, sequence) do
-    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence }
+    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
   end
 
-  def serialize(%TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence }
-      ) do
-    result = :binary.bin_to_list(prev_tx)  |> Enum.reverse
+  def serialize(%TxIn{
+        prev_tx: prev_tx,
+        prev_index: prev_index,
+        script_sig: _script_sig,
+        sequence: sequence
+      }) do
+    result = :binary.bin_to_list(prev_tx) |> Enum.reverse()
     result = result + MathUtils.int_to_little_endian(prev_index, 4)
-#    result = result + script_sig.serialize()
-result = result + MathUtils.int_to_little_endian(sequence, 4)
-      end
+    #    result = result + script_sig.serialize()
+    result + MathUtils.int_to_little_endian(sequence, 4)
+  end
 end

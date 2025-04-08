@@ -12,4 +12,8 @@ defmodule CryptoUtils do
     # Convert the binary hash to an integer using big-endian
     :binary.decode_unsigned(hash, :big)
   end
+
+  def hash_256(data) do
+    :crypto.hash(:sha256, data)
+  end
 end

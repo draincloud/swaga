@@ -40,4 +40,14 @@ defmodule TxIn do
     #    result = result + script_sig.serialize()
     result + MathUtils.int_to_little_endian(sequence, 4)
   end
+
+  def parse(s) when is_binary(s) do
+    <<prev_tx::binary-size(32), rest>> = Helpers.reverse_binary(s)
+    <<prev_index::binary-size(4), rest>> = rest
+    prev_index = MathUtils.little_endian_to_int(prev_index)
+    script_sig = Script.parse(s)
+    <<sequence::binary-size(4), rest>> = rest
+    sequence = MathUtils.little_endian_to_int(sequence)
+    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
+  end
 end

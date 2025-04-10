@@ -1,6 +1,7 @@
 defmodule Tx do
   @enforce_keys [
-    :version
+    :version,
+    :tx_ins
   ]
 
   defstruct [
@@ -81,12 +82,16 @@ defmodule Tx do
     raise "Integer too large"
   end
 
-  def parse(serialized_tx) do
-    <<four_bites::binary-size(8), _resp::binary>> = serialized_tx
-    :logger.debug("#{four_bites}")
-
+  def parse(serialized_tx) when is_binary(serialized_tx) do
+    <<four_bytes::binary-size(8), rest::binary>> = serialized_tx
+    num_inputs = read_varint(rest)
+    inputs = []
+    for input <- 0..num_inputs do
+      parsed_input = TxIn.parse(input)
+    end
     %Tx{
-      version: MathUtils.little_endian_to_int(Base.decode16!(four_bites))
+      version: MathUtils.little_endian_to_int(Base.decode16!(four_bytes)),
+      tx_ins: inputs
     }
   end
 

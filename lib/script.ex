@@ -81,7 +81,7 @@ defmodule Script do
     <<cmd::binary-size(data_length), _::binary>> = rest
     cmds = cmds ++ cmd
     count = count + data_length + 1
-    iter_script(s, cmds, count, length)
+    {s, cmds} = iter_script(s, cmds, count, length)
   end
 
   def iter_script(<<current_byte, _::binary>> = s, cmds, count, length)
@@ -101,8 +101,8 @@ defmodule Script do
     iter_script(s, cmds, count, length)
   end
 
-  def iter_script(_s, cmds, count, length) when count >= length do
-    cmds
+  def iter_script(s, cmds, count, length) when count >= length do
+    {s, cmds}
   end
 
   def raw_serialize(%{cmds: cmds}) do
@@ -137,10 +137,20 @@ defmodule Script do
     raise "Too long an cmd"
   end
 
-  def serialize(%{cmds: cmds}) do
-    result = raw_serialize(cmds)
-    total = length(result)
-    # todo test this
-    Tx.encode_varint(total) + result
+  def serialize(%Script{cmds: _cmds}) do
+#    result = raw_serialize(cmds)
+#    total = length(result)
+#    # todo test this
+#    Tx.encode_varint(total) + result
   end
+
+  def evaluate(%Script{cmds: cmds}, _z) do
+    _cmds_copy = cmds
+    _stack = []
+    _alt_stack = []
+  end
+
+  #  def iter_over_script_commands([cmd | rest]) when is_int(cmd) do
+  #    operation =
+  #  end
 end

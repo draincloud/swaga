@@ -42,12 +42,23 @@ defmodule TxIn do
   end
 
   def parse(s) when is_binary(s) do
-    <<prev_tx::binary-size(32), rest>> = Helpers.reverse_binary(s)
-    <<prev_index::binary-size(4), rest>> = rest
-    prev_index = MathUtils.little_endian_to_int(prev_index)
-    script_sig = Script.parse(s)
-    <<sequence::binary-size(4), rest>> = rest
+    <<prev_tx_raw::binary-size(32), rest::binary>> = s
+    prev_tx = Helpers.reverse_binary(prev_tx_raw)
+
+    <<prev_index_raw::binary-size(4), rest2::binary>> = rest
+    prev_index = MathUtils.little_endian_to_int(prev_index_raw)
+
+    {rest3, script_sig} = Script.parse(rest2)
+
+    <<sequence::binary-size(4), rest4::binary>> = rest3
     sequence = MathUtils.little_endian_to_int(sequence)
-    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
+
+    {rest4,
+     %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}}
+  end
+
+  # Expects input and transaction with outputs
+  def value(%{prev_index: prev_index}, %{tx_outs: outputs}) do
+    Enum.at(outputs, prev_index).amount
   end
 end

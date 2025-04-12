@@ -17,4 +17,11 @@ defmodule TxOut do
     result = MathUtils.int_to_little_endian(amount, 8)
     result + script_pubkey
   end
+
+  def parse(s) do
+    <<raw_amount::binary-size(8), rest::binary>> = s
+    amount = MathUtils.little_endian_to_int(raw_amount)
+    {rest2, script_pubkey} = Script.parse(rest)
+    {rest2, %TxOut{amount: amount, script_pubkey: script_pubkey}}
+  end
 end

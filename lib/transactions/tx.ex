@@ -1,3 +1,5 @@
+require Logger
+
 defmodule Tx do
   @enforce_keys [
     :version,
@@ -28,13 +30,6 @@ defmodule Tx do
     }
   end
 
-  defimpl String.Chars, for: Tx do
-    def to_string(self) do
-      # TODO
-      Kernel.inspect(self)
-    end
-  end
-
   #  def id(tx) do
   #    hash(tx)
   #  end
@@ -46,20 +41,20 @@ defmodule Tx do
   #     |> :binary.list_to_bin
   #  end
 
-  def read_varint(<<0xFD, _::binary>>) do
-    MathUtils.little_endian_to_int(Base.decode16!(0xFD))
+  def read_varint(<<0xFD, rest::binary>>) do
+    {MathUtils.little_endian_to_int(Base.decode16!(0xFD)), rest}
   end
 
-  def read_varint(<<0xFE, _::binary>>) do
-    MathUtils.little_endian_to_int(Base.decode16!(0xFE))
+  def read_varint(<<0xFE, rest::binary>>) do
+    {MathUtils.little_endian_to_int(Base.decode16!(0xFE)), rest}
   end
 
-  def read_varint(<<0xFF, _::binary>>) do
-    MathUtils.little_endian_to_int(Base.decode16!(0xFF))
+  def read_varint(<<0xFF, rest::binary>>) do
+    {MathUtils.little_endian_to_int(Base.decode16!(0xFF)), rest}
   end
 
-  def read_varint(<<prefix, _::binary>>) do
-    prefix
+  def read_varint(<<prefix, rest::binary>>) do
+    {prefix, rest}
   end
 
   def encode_varint(i) when i < 0xFD do
@@ -83,16 +78,42 @@ defmodule Tx do
   end
 
   def parse(serialized_tx) when is_binary(serialized_tx) do
-    <<four_bytes::binary-size(8), rest::binary>> = serialized_tx
-    num_inputs = read_varint(rest)
+    <<version_bin::binary-size(4), rest::binary>> = serialized_tx
+    {num_inputs, tx_rest} = read_varint(rest)
     inputs = []
-    for input <- 0..num_inputs do
-      parsed_input = TxIn.parse(input)
-    end
+
+    {inputs, final_rest} =
+      Enum.reduce(1..num_inputs, {[], tx_rest}, fn _, {acc, bin} ->
+        {new_bin, input} = TxIn.parse(bin)
+        {[input | acc], new_bin}
+      end)
+
+    {num_outputs, tx_rest} = read_varint(final_rest)
+
+    {outputs, final_rest} =
+      Enum.reduce(1..num_outputs, {[], tx_rest}, fn _, {acc, bin} ->
+        {new_bin, output} = TxOut.parse(bin)
+        {[output | acc], new_bin}
+      end)
+
+    <<raw_locktime::binary-size(4), _::binary>> = final_rest
+    locktime = MathUtils.little_endian_to_int(raw_locktime)
+
     %Tx{
-      version: MathUtils.little_endian_to_int(Base.decode16!(four_bytes)),
-      tx_ins: inputs
+      version: MathUtils.little_endian_to_int(version_bin),
+      tx_ins: inputs,
+      tx_outs: Enum.reverse(outputs),
+      locktime: locktime,
+      testnet: false
     }
+  end
+
+  def fee(%{tx_ins: inputs, tx_outs: outputs} = tx) do
+    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc = acc + TxIn.value(input, tx) end)
+    Logger.debug(input_sum)
+    output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc = acc + output.amount end)
+    Logger.debug(output_sum)
+    input_sum - output_sum
   end
 
   #  def serialize(%Tx{

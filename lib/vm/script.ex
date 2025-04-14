@@ -79,7 +79,7 @@ defmodule Script do
   def iter_script(<<76, rest::binary>> = s, cmds, count, length)
       when count < length do
     <<first, rest2::binary>> = rest
-    data_length = MathUtils.little_endian_to_int(first)
+    data_length = MathUtils.little_endian_to_int(<<first>>)
     <<cmd::binary-size(data_length), rest3::binary>> = rest2
     iter_script(rest3, cmds ++ [cmd], count + data_length + 2, length)
   end

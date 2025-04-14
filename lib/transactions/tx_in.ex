@@ -1,3 +1,4 @@
+require Logger
 defmodule TxIn do
   @enforce_keys [
     :prev_tx,
@@ -19,11 +20,10 @@ defmodule TxIn do
     end
   end
 
-  def new(prev_tx, prev_index) do
-    #    script_sig = Script
-    script_sig = 1
-    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
-  end
+#  def new(prev_tx, prev_index) do
+#    script_sig = 1
+#    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
+#  end
 
   def new(prev_tx, prev_index, script_sig, sequence) do
     %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
@@ -37,7 +37,6 @@ defmodule TxIn do
       }) do
     result = :binary.bin_to_list(prev_tx) |> Enum.reverse()
     result = result + MathUtils.int_to_little_endian(prev_index, 4)
-    #    result = result + script_sig.serialize()
     result + MathUtils.int_to_little_endian(sequence, 4)
   end
 
@@ -57,8 +56,19 @@ defmodule TxIn do
      %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}}
   end
 
-  # Expects input and transaction with outputs
-  def value(%{prev_index: prev_index}, %{tx_outs: outputs}) do
-    Enum.at(outputs, prev_index).amount
+  defp fetch_tx(hash, testnet) do
+    hex = Base.encode16(hash)
+    TxFetcher.fetch(hex, testnet)
   end
+
+  def value(%{prev_tx: prev_tx, prev_index: index}, true) do
+    %{tx_outs: outputs} = fetch_tx(prev_tx,true)
+    Enum.at(outputs, index).amount
+  end
+
+  def value(%{prev_tx: prev_tx, prev_index: index}, false) do
+    %{tx_outs: outputs} = fetch_tx(prev_tx,false)
+    Enum.at(outputs, index).amount
+  end
+
 end

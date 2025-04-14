@@ -42,15 +42,18 @@ defmodule Tx do
   #  end
 
   def read_varint(<<0xFD, rest::binary>>) do
-    {MathUtils.little_endian_to_int(Base.decode16!(0xFD)), rest}
+    <<two_bytes::binary-size(2), rest2::binary>> = rest
+    {MathUtils.little_endian_to_int(two_bytes), rest2}
   end
 
   def read_varint(<<0xFE, rest::binary>>) do
-    {MathUtils.little_endian_to_int(Base.decode16!(0xFE)), rest}
+    <<four_bytes::binary-size(4), rest2::binary>> = rest
+    {MathUtils.little_endian_to_int(four_bytes), rest2}
   end
 
   def read_varint(<<0xFF, rest::binary>>) do
-    {MathUtils.little_endian_to_int(Base.decode16!(0xFF)), rest}
+    <<eight_bytes::binary-size(8), rest2::binary>> = rest
+    {MathUtils.little_endian_to_int(eight_bytes), rest2}
   end
 
   def read_varint(<<prefix, rest::binary>>) do
@@ -108,11 +111,9 @@ defmodule Tx do
     }
   end
 
-  def fee(%{tx_ins: inputs, tx_outs: outputs} = tx) do
-    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc = acc + TxIn.value(input, tx) end)
-    Logger.debug(input_sum)
+  def fee(%{tx_ins: inputs, tx_outs: outputs} = tx, testnet) do
+    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc = acc + TxIn.value(input, testnet) end)
     output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc = acc + output.amount end)
-    Logger.debug(output_sum)
     input_sum - output_sum
   end
 

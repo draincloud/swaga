@@ -17,6 +17,15 @@ defmodule Swaga.Storage.Cache do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  def stop() do
+    :logger.info("[#{__MODULE__}] stopping swaga mnesia cache")
+    case :mnesia.stop() do
+      :stopped ->  GenServer.stop(__MODULE__, :normal)
+      fail -> raise "Failed to stop mnesia: #{inspect(fail)}"
+    end
+
+  end
+
   @impl true
   def init(_) do
     initialize_mnesia()
@@ -49,7 +58,7 @@ defmodule Swaga.Storage.Cache do
 
   @impl true
   def handle_call({:key_val_add_call, {key, value}}, _from, state) do
-    :logger.debug("handle_call call")
+    :logger.debug("handle_call key_val_add_call")
 
     case :mnesia.transaction(fn ->
       :mnesia.write({KeyValCacheV1, key, value})
@@ -61,7 +70,7 @@ defmodule Swaga.Storage.Cache do
 
   @impl true
   def handle_call({:key_val_get_call, key}, _from, state) do
-    :logger.debug("handle_call call")
+    :logger.debug("handle_call key_val_get_call")
 
     out = :mnesia.transaction(fn ->
       :mnesia.read(KeyValCacheV1, key, :write)

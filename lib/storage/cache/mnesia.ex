@@ -13,14 +13,13 @@ defmodule Swaga.Storage.Cache do
   end
 
   def start(opts) do
-    :logger.info("[Swaga.Storage.Cache] starting swaga mnesia cache")
+    :logger.info("[#{__MODULE__}] starting swaga mnesia cache")
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
   def init(_) do
     initialize_mnesia()
-    {:ok, %{}}
   end
 
   defp initialize_mnesia() do
@@ -44,19 +43,46 @@ defmodule Swaga.Storage.Cache do
       {:aborted, {:already_exists, KeyValCacheV1}} -> :logger.info("[#{__MODULE__}] KeyValCacheV1 table alreay created")
       reason ->  raise "failed to create KeyValCacheV1 table: #{Kernel.inspect(reason)}"
     end
+
+    {:ok, %{}}
   end
 
   @impl true
-  def handle_call({:key_val_add_call, req}, _from, state) do
+  def handle_call({:key_val_add_call, {key, value}}, _from, state) do
     :logger.debug("handle_call call")
 
-    
-    {:reply, state}
+    case :mnesia.transaction(fn ->
+      :mnesia.write({KeyValCacheV1, key, value})
+    end) do
+      :ok -> {:reply, :ok, state}
+      fail -> {:reply, fail, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:key_val_get_call, key}, _from, state) do
+    :logger.debug("handle_call call")
+
+    out = :mnesia.transaction(fn ->
+      :mnesia.read(KeyValCacheV1, key, :write)
+    end)
+    case out do
+      {:atomic, set} -> {:reply, set, state}
+      fail -> {:reply, fail, state}
+    end
   end
 
   @impl true
   def handle_cast({req, element}, state) do
     :logger.debug("handle_cast call")
     {:noreply, state}
+  end
+
+  def add_record_v1({key, val}) do
+    GenServer.call(__MODULE__, {:key_val_add_call, {key, val}})
+  end
+
+  def get_record_v1(key) do
+    GenServer.call(__MODULE__, {:key_val_get_call, key})
   end
 end

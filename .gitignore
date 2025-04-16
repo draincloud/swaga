@@ -24,3 +24,5 @@ swaga-*.tar
 /tmp/
 
 .vscode
+.elixir_ls
+_build

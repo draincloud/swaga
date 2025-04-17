@@ -10,7 +10,7 @@ defmodule MathUtils do
     powmod(n, k, m, r)
   end
 
-  def little_endian_to_int(binary_data) do
+  def little_endian_to_int(binary_data) when is_binary(binary_data) do
     :binary.decode_unsigned(binary_data, :little)
   end
 

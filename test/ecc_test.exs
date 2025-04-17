@@ -186,7 +186,7 @@ defmodule EccTest do
     assert Point.mul(p1, 21) == p2
   end
 
-  @tag :important
+  #  @tag :important
   test "verify signature using primitives" do
     z = 0xBC62D4B80D9E36DA29C16C5D4D9F11731F36052C72401A76C23C0FB5A9B74423
     r = 0x37206A0610995C58074999CB9767B87AF4C4978DB68C06E8E6E81D282047A7C6

@@ -26,4 +26,4 @@ swaga-*.tar
 .vscode
 .elixir_ls
 _build
-Mnesia*
+Mnesia*/

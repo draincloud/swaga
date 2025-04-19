@@ -75,7 +75,6 @@ defmodule TxTest do
     assert locktime == 410_393
   end
 
-  @tag :important
   test "fee" do
     raw_tx =
       Base.decode16!(

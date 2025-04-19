@@ -112,7 +112,9 @@ defmodule Tx do
   end
 
   def fee(%{tx_ins: inputs, tx_outs: outputs} = tx, testnet) do
-    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc = acc + TxIn.value(input, testnet) end)
+    input_sum =
+      Enum.reduce(inputs, 0, fn input, acc -> acc = acc + TxIn.value(input, testnet) end)
+
     output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc = acc + output.amount end)
     input_sum - output_sum
   end

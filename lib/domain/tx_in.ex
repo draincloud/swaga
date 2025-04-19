@@ -1,4 +1,5 @@
 require Logger
+
 defmodule TxIn do
   @enforce_keys [
     :prev_tx,
@@ -20,10 +21,10 @@ defmodule TxIn do
     end
   end
 
-#  def new(prev_tx, prev_index) do
-#    script_sig = 1
-#    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
-#  end
+  #  def new(prev_tx, prev_index) do
+  #    script_sig = 1
+  #    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
+  #  end
 
   def new(prev_tx, prev_index, script_sig, sequence) do
     %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
@@ -62,13 +63,12 @@ defmodule TxIn do
   end
 
   def value(%{prev_tx: prev_tx, prev_index: index}, true) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx,true)
+    %{tx_outs: outputs} = fetch_tx(prev_tx, true)
     Enum.at(outputs, index).amount
   end
 
   def value(%{prev_tx: prev_tx, prev_index: index}, false) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx,false)
+    %{tx_outs: outputs} = fetch_tx(prev_tx, false)
     Enum.at(outputs, index).amount
   end
-
 end

@@ -22,6 +22,7 @@ defmodule Swaga.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
       {:req, "~> 0.5.0"},
       {:poison, "~> 6.0"},
       {:plug, "~> 1.7"},

@@ -1,5 +1,3 @@
-require Logger
-
 defmodule Script do
   @enforce_keys [
     :cmds
@@ -28,17 +26,17 @@ defmodule Script do
     {rest_bin, %Script{cmds: parsed_cmds}}
   end
 
-  def parse(s) do
+  def parse(_) do
     raise "Type error s is not binary"
   end
 
-  def parse_script_commands(<<current_byte, rest::binary>> = s, cmds, count, length)
+  def parse_script_commands(<<current_byte, rest::binary>>, cmds, count, length)
       when count < length and current_byte >= 1 and current_byte <= 75 do
     <<cmd::binary-size(current_byte), rest_cmds::binary>> = rest
     parse_script_commands(rest_cmds, cmds ++ [cmd], count + 1 + current_byte, length)
   end
 
-  def parse_script_commands(<<76, rest::binary>> = s, cmds, count, length)
+  def parse_script_commands(<<76, rest::binary>>, cmds, count, length)
       when count < length do
     <<first, rest2::binary>> = rest
     data_length = MathUtils.little_endian_to_int(<<first>>)
@@ -46,7 +44,7 @@ defmodule Script do
     parse_script_commands(rest3, cmds ++ [cmd], count + data_length + 2, length)
   end
 
-  def parse_script_commands(<<77, rest::binary>> = s, cmds, count, length)
+  def parse_script_commands(<<77, rest::binary>>, cmds, count, length)
       when count < length do
     count = count + 1
     <<first_two::binary-size(2), rest2::binary>> = rest
@@ -55,7 +53,7 @@ defmodule Script do
     parse_script_commands(rest3, cmds ++ [cmd], count + data_length + 3, length)
   end
 
-  def parse_script_commands(<<op_code, rest::binary>> = s, cmds, count, length)
+  def parse_script_commands(<<op_code, rest::binary>>, cmds, count, length)
       when count < length and is_list(cmds) do
     parse_script_commands(rest, cmds ++ [op_code], count + 1, length)
   end
@@ -97,7 +95,7 @@ defmodule Script do
     raise "Too long an cmd"
   end
 
-  def serialize(%Script{cmds: cmds} = script) do
+  def serialize(%Script{} = script) do
     result = raw_serialize(script)
     total = result |> :binary.bin_to_list() |> length
     Tx.encode_varint(total) <> result
@@ -118,8 +116,6 @@ defmodule Script do
   end
 
   defp iter_over_cmds([cmd | rest], stack, alt_stack, z) do
-    Logger.debug("cmd -> #{inspect(cmd)}")
-
     case is_integer(cmd) do
       true ->
         operation = VM.fetch_operation(cmd)
@@ -136,7 +132,6 @@ defmodule Script do
               operation.(stack, z)
 
             true ->
-              Logger.debug("stack -> #{inspect(stack)}")
               operation.(stack)
           end
 

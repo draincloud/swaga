@@ -92,7 +92,7 @@ defmodule Swaga.Storage.Cache do
   end
 
   @impl true
-  def handle_cast({req, element}, state) do
+  def handle_cast({_req, _element}, state) do
     :logger.debug("handle_cast call")
     {:noreply, state}
   end

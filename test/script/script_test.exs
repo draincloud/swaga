@@ -57,7 +57,7 @@ defmodule ScriptTest do
     script_pubkey = Script.new([sec, 0xAC])
     script_sig = Script.new([sig])
     combined_script = Script.add(script_pubkey, script_sig)
-    Script.evaluate(combined_script)
+    {:ok} = Script.evaluate(combined_script, z)
   end
 
   #  * `56 = OP_6`

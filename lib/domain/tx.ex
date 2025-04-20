@@ -83,7 +83,6 @@ defmodule Tx do
   def parse(serialized_tx) when is_binary(serialized_tx) do
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
     {num_inputs, tx_rest} = read_varint(rest)
-    inputs = []
 
     {inputs, final_rest} =
       Enum.reduce(1..num_inputs, {[], tx_rest}, fn _, {acc, bin} ->
@@ -111,12 +110,11 @@ defmodule Tx do
     }
   end
 
-  def fee(%{tx_ins: inputs, tx_outs: outputs} = tx, testnet) do
+  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet) do
     input_sum =
-      Enum.reduce(inputs, 0, fn input, acc -> acc = acc + TxIn.value(input, testnet) end)
+      Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
 
-    output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc = acc + output.amount end)
-    input_sum - output_sum
+    input_sum - Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
   end
 
   #  def serialize(%Tx{

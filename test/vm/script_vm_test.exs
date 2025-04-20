@@ -11,6 +11,6 @@ defmodule ScriptVMTest do
     # 99=OP_IF, 103=OP_ELSE, 104=OP_ENDIF
     items = [99, :A, 103, :B, 104]
     # Pattern match the result with true
-    {:ok, _res} = VM.op_if(stack, items)
+    {:ok, _res} = VM._op_if(stack, items)
   end
 end

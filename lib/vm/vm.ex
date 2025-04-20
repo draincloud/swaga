@@ -1,12 +1,6 @@
-require Logger
 import Bitwise
 
 defmodule VM do
-  #  def execute(stack, opcode) do
-  #    func = fetch_operation(opcode)
-  #    func.(stack)
-  #  end
-
   def fetch_operation(cmd) when is_integer(cmd) do
     Map.fetch!(opcode_functions(), cmd)
   end
@@ -21,8 +15,6 @@ defmodule VM do
     result = []
     result = encode_num_result(abs_num, result)
     last_byte = List.last(result)
-    Logger.debug("result #{inspect(result)}")
-    Logger.debug("num #{inspect(num)}")
 
     result =
       cond do
@@ -50,32 +42,17 @@ defmodule VM do
     result
   end
 
-  defp encode_check_result_last_element(result, is_negative) when is_negative do
-    result = result ++ 0x80
-  end
-
-  defp encode_check_result_last_element(result, is_negative) when not is_negative do
-    result = result ++ 0
-  end
-
   def decode_num(<<>>), do: 0
 
   def decode_num(element) when is_binary(element) do
-    Logger.debug("element #{inspect(element)}")
     big_endian = element |> :binary.bin_to_list() |> Enum.reverse()
-    Logger.debug("big_endian #{inspect(big_endian)}")
     last = List.last(big_endian)
-    negative = false
-    result = 0
 
-    Logger.debug("last #{inspect(last)}")
-
-    result =
+    {result, negative} =
       if (last &&& 0x80) != 0 do
-        negative = true
-        last &&& 0x7F
+        {last &&& 0x7F, true}
       else
-        last
+        {last, false}
       end
 
     # returns tail of the list, except the first elem
@@ -118,14 +95,14 @@ defmodule VM do
   def op_16(stack), do: {:ok, stack ++ [encode_num(16)]}
   def op_nop(stack), do: {:ok, stack}
 
-  def op_if(stack, items) do
+  def _op_if(stack, items) when is_list(stack) do
     true_items = []
     false_items = []
     current_array = []
     found = false
     num_endifs_needed = 1
 
-    {item, true_items, false_items, current_array, found, num_endifs_needed} =
+    {_item, true_items, false_items, _current_array, found, _num_endifs_needed} =
       iterate_over_stack(items, true_items, false_items, current_array, found, num_endifs_needed)
 
     if not found do
@@ -134,17 +111,18 @@ defmodule VM do
 
     [element | rest_stack] = stack
 
-    items =
+    # This implementation is not fixed i guess
+    _items =
       if decode_num(element) == 0 do
         false_items ++ items
       else
         true_items ++ items
       end
 
-    {:ok, stack}
+    {:ok, rest_stack}
   end
 
-  def op_if(stack, items) when length(stack) < 1 do
+  def _op_if(stack, _) when length(stack) < 1 do
     {:error, stack}
   end
 
@@ -156,25 +134,23 @@ defmodule VM do
          found,
          num_endifs_needed
        ) do
-    cond do
-      item in [99, 100] ->
-        num_endifs_needed = num_endifs_needed + 1
-        current_array = [item | current_array]
+    {current_array, num_endifs_needed, found} =
+      cond do
+        item in [99, 100] ->
+          {[item | current_array], num_endifs_needed + 1, found}
 
-      num_endifs_needed == 1 and item == 103 ->
-        current_array = false_items
+        num_endifs_needed == 1 and item == 103 ->
+          {false_items, num_endifs_needed, found}
 
-      item == 104 and num_endifs_needed == 1 ->
-        found = true
-        {item, true_items, false_items, current_array, found, num_endifs_needed}
+        item == 104 and num_endifs_needed == 1 ->
+          {current_array, num_endifs_needed, true}
 
-      item == 104 ->
-        num_endifs_needed = num_endifs_needed - 1
-        current_array = [item | current_array]
+        item == 104 ->
+          {[item | current_array], num_endifs_needed - 1, found}
 
-      true ->
-        current_array = [item | current_array]
-    end
+        true ->
+          {[item | current_array], num_endifs_needed, found}
+      end
 
     {item, true_items, false_items, current_array, found, num_endifs_needed}
   end
@@ -194,7 +170,7 @@ defmodule VM do
     # pattern match list and list with length = 1
     {init, [last]} = Enum.split(items, length(items) - 1)
 
-    {item, true_items, false_items, current_array, found, num_endifs_needed} =
+    {_, true_items, false_items, current_array, found, num_endifs_needed} =
       match_last_stack_item_op_if(
         last,
         true_items,
@@ -237,7 +213,7 @@ defmodule VM do
 
   # length must be >= 2
   def op_equal(stack) when length(stack) >= 2 do
-    [elem1, elem2 | rest] = Enum.reverse(stack)
+    [elem1, elem2 | _] = Enum.reverse(stack)
 
     if elem1 == elem2 do
       {:ok, stack ++ [encode_num(1)]}
@@ -301,7 +277,7 @@ defmodule VM do
     {:ok, rest ++ [CryptoUtils.sha1(elem)]}
   end
 
-  opcode_names = %{
+  _opcode_names = %{
     0 => "OP_0",
     76 => "OP_PUSHDATA1",
     77 => "OP_PUSHDATA2",
@@ -416,65 +392,65 @@ defmodule VM do
       95 => &__MODULE__.op_15/1,
       96 => &__MODULE__.op_16/1,
       97 => &__MODULE__.op_nop/1,
-      99 => &__MODULE__.op_if/2,
-      100 => &__MODULE__.op_notif/2,
+      99 => &__MODULE__._op_if/2,
+      #      100 => &__MODULE__.op_notif/2,
       105 => &__MODULE__.op_verify/1,
-      106 => &__MODULE__.op_return/1,
-      107 => &__MODULE__.op_toaltstack/2,
-      108 => &__MODULE__.op_fromaltstack/2,
-      109 => &__MODULE__.op_2drop/1,
+      #      106 => &__MODULE__.op_return/1,
+      #      107 => &__MODULE__.op_toaltstack/2,
+      #      108 => &__MODULE__.op_fromaltstack/2,
+      #      109 => &__MODULE__.op_2drop/1,
       110 => &__MODULE__.op_2dup/1,
-      111 => &__MODULE__.op_3dup/1,
-      112 => &__MODULE__.op_2over/1,
-      113 => &__MODULE__.op_2rot/1,
-      114 => &__MODULE__.op_2swap/1,
-      115 => &__MODULE__.op_ifdup/1,
-      116 => &__MODULE__.op_depth/1,
-      117 => &__MODULE__.op_drop/1,
+      #      111 => &__MODULE__.op_3dup/1,
+      #      112 => &__MODULE__.op_2over/1,
+      #      113 => &__MODULE__.op_2rot/1,
+      #      114 => &__MODULE__.op_2swap/1,
+      #      115 => &__MODULE__.op_ifdup/1,
+      #      116 => &__MODULE__.op_depth/1,
+      #      117 => &__MODULE__.op_drop/1,
       118 => &__MODULE__.op_dup/1,
-      119 => &__MODULE__.op_nip/1,
-      120 => &__MODULE__.op_over/1,
-      121 => &__MODULE__.op_pick/1,
-      122 => &__MODULE__.op_roll/1,
-      123 => &__MODULE__.op_rot/1,
+      #      119 => &__MODULE__.op_nip/1,
+      #      120 => &__MODULE__.op_over/1,
+      #      121 => &__MODULE__.op_pick/1,
+      #      122 => &__MODULE__.op_roll/1,
+      #      123 => &__MODULE__.op_rot/1,
       124 => &__MODULE__.op_swap/1,
-      125 => &__MODULE__.op_tuck/1,
-      130 => &__MODULE__.op_size/1,
+      #      125 => &__MODULE__.op_tuck/1,
+      #      130 => &__MODULE__.op_size/1,
       135 => &__MODULE__.op_equal/1,
-      136 => &__MODULE__.op_equalverify/1,
-      139 => &__MODULE__.op_1add/1,
-      140 => &__MODULE__.op_1sub/1,
-      143 => &__MODULE__.op_negate/1,
-      144 => &__MODULE__.op_abs/1,
+      #      136 => &__MODULE__.op_equalverify/1,
+      #      139 => &__MODULE__.op_1add/1,
+      #      140 => &__MODULE__.op_1sub/1,
+      #      143 => &__MODULE__.op_negate/1,
+      #      144 => &__MODULE__.op_abs/1,
       145 => &__MODULE__.op_not/1,
-      146 => &__MODULE__.op_0notequal/1,
+      #      146 => &__MODULE__.op_0notequal/1,
       147 => &__MODULE__.op_add/1,
-      148 => &__MODULE__.op_sub/1,
+      #      148 => &__MODULE__.op_sub/1,
       149 => &__MODULE__.op_mul/1,
-      154 => &__MODULE__.op_booland/1,
-      155 => &__MODULE__.op_boolor/1,
-      156 => &__MODULE__.op_numequal/1,
-      157 => &__MODULE__.op_numequalverify/1,
-      158 => &__MODULE__.op_numnotequal/1,
-      159 => &__MODULE__.op_lessthan/1,
-      160 => &__MODULE__.op_greaterthan/1,
-      161 => &__MODULE__.op_lessthanorequal/1,
-      162 => &__MODULE__.op_greaterthanorequal/1,
-      163 => &__MODULE__.op_min/1,
-      164 => &__MODULE__.op_max/1,
-      165 => &__MODULE__.op_within/1,
-      166 => &__MODULE__.op_ripemd160/1,
+      #      154 => &__MODULE__.op_booland/1,
+      #      155 => &__MODULE__.op_boolor/1,
+      #      156 => &__MODULE__.op_numequal/1,
+      #      157 => &__MODULE__.op_numequalverify/1,
+      #      158 => &__MODULE__.op_numnotequal/1,
+      #      159 => &__MODULE__.op_lessthan/1,
+      #      160 => &__MODULE__.op_greaterthan/1,
+      #      161 => &__MODULE__.op_lessthanorequal/1,
+      #      162 => &__MODULE__.op_greaterthanorequal/1,
+      #      163 => &__MODULE__.op_min/1,
+      #      164 => &__MODULE__.op_max/1,
+      #      165 => &__MODULE__.op_within/1,
+      #      166 => &__MODULE__.op_ripemd160/1,
       167 => &__MODULE__.op_sha1/1,
-      168 => &__MODULE__.op_sha256/1,
+      #      168 => &__MODULE__.op_sha256/1,
       169 => &__MODULE__.op_hash160/1,
       170 => &__MODULE__.op_hash256/1,
       172 => &__MODULE__.op_checksig/2,
-      173 => &__MODULE__.op_checksigverify/2,
-      174 => &__MODULE__.op_checkmultisig/2,
-      175 => &__MODULE__.op_checkmultisigverify/2,
+      #      173 => &__MODULE__.op_checksigverify/2,
+      #      174 => &__MODULE__.op_checkmultisig/2,
+      #      175 => &__MODULE__.op_checkmultisigverify/2,
       176 => &__MODULE__.op_nop/1,
-      177 => &__MODULE__.op_checklocktimeverify/3,
-      178 => &__MODULE__.op_checksequenceverify/3,
+      #      177 => &__MODULE__.op_checklocktimeverify/3,
+      #      178 => &__MODULE__.op_checksequenceverify/3,
       179 => &__MODULE__.op_nop/1,
       180 => &__MODULE__.op_nop/1,
       181 => &__MODULE__.op_nop/1,

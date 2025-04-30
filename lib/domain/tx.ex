@@ -110,7 +110,7 @@ defmodule Tx do
     }
   end
 
-  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet) do
+  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
     input_sum =
       Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
 
@@ -173,6 +173,31 @@ defmodule Tx do
     signature = signature <> MathUtils.int_to_little_endian(locktime, 4)
     signature = signature <> MathUtils.int_to_little_endian(@sighash_all, 4)
     CryptoUtils.double_hash256(signature)
+  end
+
+  # Returns whether the input has a valid signature
+  def verify_input(%Tx{tx_ins: inputs, testnet: testnet} = tx, input_index) do
+    # Get the relevant input
+    input = Enum.at(inputs, input_index)
+    # Grab the previous ScriptPubKey
+    script_pubkey = TxIn.script_pubkey(input, testnet)
+    # Get the signature hash(z)
+    # Pass the redeemScript ot the sig_hash method
+    z = sig_hash(tx, input_index)
+    # Combined the current ScriptSig and the previous ScriptPubkey
+    combined = Script.add(input.script_sig, script_pubkey)
+    # evaluate the combined script
+    Script.evaluate(combined, z)
+  end
+
+  def verify(%Tx{tx_ins: inputs} = tx) do
+    if fee(tx) < 0 do
+      false
+    else
+      inputs
+      |> Enum.with_index()
+      |> Enum.all?(fn {_input, i} -> verify_input(tx, i) end)
+    end
   end
 
   #  def serialize(%Tx{

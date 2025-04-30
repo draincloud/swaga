@@ -116,4 +116,15 @@ defmodule TxTest do
     assert Integer.to_string(h256, 16) |> String.downcase() ==
              "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
   end
+
+  test "verify p2pkh" do
+    tx = TxFetcher.fetch("452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03")
+    assert true == Tx.verify(tx)
+  end
+
+  @tag :in_progress
+  test "verify_p2sh" do
+    tx = TxFetcher.fetch("46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b")
+    assert true == Tx.verify(tx)
+  end
 end

@@ -207,9 +207,8 @@ defmodule VM do
   end
 
   def op_hash160(stack) when is_list(stack) do
-    {elem, _} = List.pop_at(stack, -1)
-    stack = stack ++ CryptoUtils.hash160(elem)
-    {:ok, stack}
+    [elem | rest] = Enum.reverse(stack)
+    {:ok, rest ++ [CryptoUtils.hash160(elem)]}
   end
 
   # length must be >= 2
@@ -303,6 +302,11 @@ defmodule VM do
   def op_checksig(stack, _z) do
     Logger.error("Stack length is less than 2 #{inspect(stack)}")
     {:error, stack}
+  end
+
+  def op_equalverify(stack) do
+    {:ok, new_stack} = op_equal(stack)
+    {:ok, _} = op_verify(new_stack)
   end
 
   _opcode_names = %{
@@ -445,7 +449,7 @@ defmodule VM do
       #      125 => &__MODULE__.op_tuck/1,
       #      130 => &__MODULE__.op_size/1,
       135 => &__MODULE__.op_equal/1,
-      #      136 => &__MODULE__.op_equalverify/1,
+      136 => &__MODULE__.op_equalverify/1,
       #      139 => &__MODULE__.op_1add/1,
       #      140 => &__MODULE__.op_1sub/1,
       #      143 => &__MODULE__.op_negate/1,

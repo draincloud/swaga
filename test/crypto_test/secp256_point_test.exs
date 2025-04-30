@@ -66,7 +66,6 @@ defmodule SignaturePointTest do
     assert address == "miUDLpH3GYv2uiuJYsETUBMn5vfNEo99ZF"
   end
 
-  @tag :in_progress
   test "take the public key in SEC format and the signature in DER \
 from the ScriptSig to verify the signature" do
     sec =

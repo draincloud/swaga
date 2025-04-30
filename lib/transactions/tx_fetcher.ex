@@ -7,7 +7,7 @@ defmodule TxFetcher do
     "https://blockstream.info/api"
   end
 
-  def fetch(tx_id, is_testnet) do
+  def fetch(tx_id, is_testnet \\ false) do
     response = Req.get!(get_url(is_testnet) <> "/tx/" <> tx_id <> "/hex")
     decoded = Base.decode16!(response.body, case: :lower)
     decoded_list = :binary.bin_to_list(decoded)

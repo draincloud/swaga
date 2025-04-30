@@ -1,5 +1,3 @@
-require Logger
-
 defmodule Base58 do
   @base58_alphabet "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 

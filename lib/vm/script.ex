@@ -14,7 +14,7 @@ defmodule Script do
     %Script{cmds: cmds}
   end
 
-  def new do
+  def new() do
     %Script{cmds: []}
   end
 

@@ -300,7 +300,7 @@ defmodule VM do
     {:ok, updated_stack}
   end
 
-  def op_checksig(stack, z) do
+  def op_checksig(stack, _z) do
     Logger.error("Stack length is less than 2 #{inspect(stack)}")
     {:error, stack}
   end

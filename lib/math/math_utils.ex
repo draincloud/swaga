@@ -1,3 +1,5 @@
+require Logger
+
 defmodule MathUtils do
   # Calculates (n ^ k) % m.
   def powmod(n, k, m), do: powmod(n, k, m, 1)
@@ -16,11 +18,10 @@ defmodule MathUtils do
 
   def int_to_little_endian(num, length) do
     bin = :binary.encode_unsigned(num, :little)
-    bin_len = bit_size(bin)
-    length = length * 8
+    padding = length - byte_size(bin)
 
-    if bin_len < length do
-      <<0::size(length - bin_len)>> <> bin
+    if padding < length do
+      bin <> :binary.copy(<<0>>, padding)
     else
       bin
     end

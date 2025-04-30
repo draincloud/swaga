@@ -65,4 +65,24 @@ defmodule SignaturePointTest do
     address = Secp256Point.address(pk.point, false, true)
     assert address == "miUDLpH3GYv2uiuJYsETUBMn5vfNEo99ZF"
   end
+
+  @tag :in_progress
+  test "take the public key in SEC format and the signature in DER \
+from the ScriptSig to verify the signature" do
+    sec =
+      Base.decode16!("0349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a",
+        case: :lower
+      )
+
+    der =
+      Base.decode16!(
+        "3045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed",
+        case: :lower
+      )
+
+    z = 0x27E0C5994DEC7824E56DEC6B2FCB342EB7CDB0D0957C2FCE9882F715E85D81A6
+    point = Secp256Point.parse(sec)
+    signature = Signature.parse(der)
+    Secp256Point.verify(point, z, signature)
+  end
 end

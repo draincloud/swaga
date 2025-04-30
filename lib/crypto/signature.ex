@@ -1,4 +1,3 @@
-require Logger
 import Bitwise
 
 defmodule Signature do
@@ -15,7 +14,6 @@ defmodule Signature do
   def der(%Signature{r: r, s: s}) do
     rbin = :binary.encode_unsigned(r, :big)
     rbin = strip_leading_zeros(rbin)
-    #    Logger.debug("rbin #{inspect(rbin)}")
     <<first_byte, _::binary>> = rbin
 
     rbin =

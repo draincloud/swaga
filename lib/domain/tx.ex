@@ -1,6 +1,6 @@
-require Logger
-
 defmodule Tx do
+  @sighash_all 1
+
   @enforce_keys [
     :version,
     :tx_ins
@@ -121,25 +121,58 @@ defmodule Tx do
   # A transaction has at least one signature per input.
   # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
   # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
-  def sig_hash(%Tx{version: version, tx_ins: inputs}, input_index) do
+  #######
+  #  Returns the integer representation of the hash that needs to get
+  #  signed for index input_index
+  def sig_hash(
+        %Tx{
+          version: version,
+          tx_ins: inputs,
+          tx_outs: outputs,
+          testnet: testnet,
+          locktime: locktime
+        },
+        input_index
+      ) do
+    # start the serialization with version
+    # use int_to_little_endian in 4 bytes
     signature = MathUtils.int_to_little_endian(version, 4)
+    # add how many inputs there are using encode_varint
     signature = signature <> encode_varint(length(inputs))
 
-    i = 0
-
+    # loop through each input
     inputs_signatures =
-      Enum.reduce(inputs, "", fn %{
-                                   prev_tx: prev_tx,
-                                   prev_index: prev_index,
-                                   script_sig: script_sig,
-                                   sequence: sequence
-                                 } = inp,
-                                 acc ->
-        if i == input_index do
-          acc = TxIn.serialize(inp)
-        else
-        end
+      inputs
+      |> Enum.with_index()
+      |> Enum.reduce("", fn {inp, i}, acc ->
+        # if the input index is ht one we're signing
+        script_pubkey =
+          if i == input_index do
+            # If the RedeemScript (p2sh script) was passed in -> that's the ScriptSig
+            # otherwise the previous tx's ScriptPubkey is the ScriptSig
+            TxIn.script_pubkey(inp, testnet)
+          else
+            nil
+            # Otherwise, the ScriptSig is nil
+          end
+
+        new_input = TxIn.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence)
+        serialized = TxIn.serialize(new_input)
+        acc <> serialized
       end)
+
+    signature = signature <> inputs_signatures
+    signature = signature <> encode_varint(length(outputs))
+
+    serialized_outputs =
+      Enum.reduce(outputs, "", fn output, acc ->
+        acc <> TxOut.serialize(output)
+      end)
+
+    signature = signature <> serialized_outputs
+    signature = signature <> MathUtils.int_to_little_endian(locktime, 4)
+    signature = signature <> MathUtils.int_to_little_endian(@sighash_all, 4)
+    CryptoUtils.double_hash256(signature)
   end
 
   #  def serialize(%Tx{

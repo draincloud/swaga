@@ -15,7 +15,7 @@ defmodule TxOut do
 
   def serialize(%{amount: amount, script_pubkey: script_pubkey}) do
     result = MathUtils.int_to_little_endian(amount, 8)
-    result + script_pubkey
+    result <> Script.serialize(script_pubkey)
   end
 
   def parse(s) do

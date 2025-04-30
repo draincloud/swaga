@@ -90,7 +90,7 @@ defmodule Secp256Point do
 
   # case 2 or 3 (is_even or not)
   def parse(<<is_even, x_num::binary>>) do
-    x = Secp256Field.new(x_num)
+    x = Secp256Field.new(:binary.decode_unsigned(x_num, :big))
     alpha = FieldElement.pow(x, 3) +++ Secp256Field.new(@b)
     beta = Secp256Field.sqrt(alpha)
     p = Secp256Field.p()

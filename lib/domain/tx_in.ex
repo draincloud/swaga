@@ -62,13 +62,21 @@ defmodule TxIn do
     TxFetcher.fetch(hex, testnet)
   end
 
-  def value(%{prev_tx: prev_tx, prev_index: index}, true) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx, true)
+  #  Get the output value by looking up the tx hash
+  def value(%{prev_tx: prev_tx, prev_index: index}, testnet) do
+    %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
     Enum.at(outputs, index).amount
   end
 
+  #  Get the output value by looking up the tx hash
   def value(%{prev_tx: prev_tx, prev_index: index}, false) do
     %{tx_outs: outputs} = fetch_tx(prev_tx, false)
     Enum.at(outputs, index).amount
+  end
+
+  # Get the ScriptPubKey by looking up the tx hash
+  def script_pubkey(%TxIn{prev_tx: prev_tx, prev_index: prev_index}, testnet) do
+    %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
+    outputs[prev_index].script_pubkey
   end
 end

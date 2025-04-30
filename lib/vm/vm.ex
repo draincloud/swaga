@@ -1,4 +1,5 @@
 import Bitwise
+require Logger
 
 defmodule VM do
   def fetch_operation(cmd) when is_integer(cmd) do
@@ -275,6 +276,33 @@ defmodule VM do
   def op_sha1(stack) when length(stack) >= 1 do
     [elem | rest] = Enum.reverse(stack)
     {:ok, rest ++ [CryptoUtils.sha1(elem)]}
+  end
+
+  def op_checksig(stack, z) when length(stack) >= 2 do
+    # the top element of the stack is the SEC pubkey
+    stack = Enum.reverse(stack)
+    [sec_pubkey, signature_with_hash_type | stack] = stack
+    # the next element of the stack is the DER signature
+    # take off the last byte of the signature as that's the hash type
+    der_signature =
+      :binary.bin_to_list(signature_with_hash_type) |> Enum.drop(-1) |> :binary.list_to_bin()
+
+    point = Secp256Point.parse(sec_pubkey)
+    sig = Signature.parse(der_signature)
+    # Verify the signature using Secp256Point.verify
+    # push an encoded 1 or 0 depending on whether signature is verified
+    updated_stack =
+      case Secp256Point.verify(point, z, sig) do
+        true -> [stack | encode_num(1)]
+        false -> [stack | encode_num(0)]
+      end
+
+    {:ok, updated_stack}
+  end
+
+  def op_checksig(stack, z) do
+    Logger.error("Stack length is less than 2 #{inspect(stack)}")
+    {:error, stack}
   end
 
   _opcode_names = %{

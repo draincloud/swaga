@@ -39,6 +39,7 @@ defmodule ScriptTest do
     assert Base.encode16(Script.serialize(script), case: :lower) == want
   end
 
+  @tag :in_progress
   test "script evaluation" do
     z = 0x7C076FF316692A3D7EB3C3BB0F8B1488CF72E1AFCD929E29307032997A838A3D
 
@@ -56,7 +57,8 @@ defmodule ScriptTest do
 
     script_pubkey = Script.new([sec, 0xAC])
     script_sig = Script.new([sig])
-    combined_script = Script.add(script_pubkey, script_sig)
+    combined_script = Script.add(script_sig, script_pubkey)
+    #    Logger.debug(Base.encode16(Enum.at(combined_script.cmds, 0)))
     {:ok} = Script.evaluate(combined_script, z)
   end
 

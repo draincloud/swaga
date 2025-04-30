@@ -117,6 +117,31 @@ defmodule Tx do
     input_sum - Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
   end
 
+  # Checking the signature.
+  # A transaction has at least one signature per input.
+  # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
+  # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
+  def sig_hash(%Tx{version: version, tx_ins: inputs}, input_index) do
+    signature = MathUtils.int_to_little_endian(version, 4)
+    signature = signature <> encode_varint(length(inputs))
+
+    i = 0
+
+    inputs_signatures =
+      Enum.reduce(inputs, "", fn %{
+                                   prev_tx: prev_tx,
+                                   prev_index: prev_index,
+                                   script_sig: script_sig,
+                                   sequence: sequence
+                                 } = inp,
+                                 acc ->
+        if i == input_index do
+          acc = TxIn.serialize(inp)
+        else
+        end
+      end)
+  end
+
   #  def serialize(%Tx{
   #        version: version,
   #        tx_ins: tx_ins,

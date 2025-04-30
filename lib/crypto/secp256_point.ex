@@ -24,14 +24,21 @@ defmodule Secp256Point do
     Point.new(Secp256Field.new(x), Secp256Field.new(y), a, b)
   end
 
-  def get_g() do
-    new(@g_x, @g_y)
+  # Case when we pass field element instead of numbers
+  def new(%FieldElement{} = x, %FieldElement{} = y) do
+    a = Secp256Field.new(@a)
+    b = Secp256Field.new(@b)
+    Point.new(x, y, a, b)
   end
 
   def new(x, y, a, b) do
     a = Secp256Field.new(a)
     b = Secp256Field.new(b)
     Point.new(x, y, a, b)
+  end
+
+  def get_g() do
+    new(@g_x, @g_y)
   end
 
   # We can mod by n because nG = 0.

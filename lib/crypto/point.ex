@@ -1,3 +1,4 @@
+require Logger
 import CustomOperators
 
 defmodule Point do

@@ -12,6 +12,6 @@ defmodule Secp256Field do
   end
 
   def sqrt(f_element) do
-    FieldElement.pow(f_element, rem(@p + 1, 4))
+    FieldElement.pow(f_element, div(@p + 1, 4))
   end
 end

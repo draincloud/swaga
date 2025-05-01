@@ -1,4 +1,5 @@
 import Bitwise
+require Logger
 
 defmodule VM do
   def fetch_operation(cmd) when is_integer(cmd) do
@@ -197,8 +198,7 @@ defmodule VM do
 
   def op_hash256(stack) when is_list(stack) do
     {elem, _} = List.pop_at(stack, -1)
-    stack = stack ++ CryptoUtils.hash_256(elem)
-    {:ok, stack}
+    {:ok, stack ++ CryptoUtils.hash256(elem)}
   end
 
   def op_hash160(stack) when is_list(stack) and length(stack) < 1 do
@@ -206,9 +206,8 @@ defmodule VM do
   end
 
   def op_hash160(stack) when is_list(stack) do
-    {elem, _} = List.pop_at(stack, -1)
-    stack = stack ++ CryptoUtils.hash160(elem)
-    {:ok, stack}
+    [elem | rest] = Enum.reverse(stack)
+    {:ok, rest ++ [CryptoUtils.hash160(elem)]}
   end
 
   # length must be >= 2
@@ -275,6 +274,38 @@ defmodule VM do
   def op_sha1(stack) when length(stack) >= 1 do
     [elem | rest] = Enum.reverse(stack)
     {:ok, rest ++ [CryptoUtils.sha1(elem)]}
+  end
+
+  def op_checksig(stack, z) when length(stack) >= 2 do
+    # the top element of the stack is the SEC pubkey
+    stack = Enum.reverse(stack)
+    [sec_pubkey, signature_with_hash_type | stack] = stack
+    # the next element of the stack is the DER signature
+    # take off the last byte of the signature as that's the hash type
+    der_signature =
+      :binary.bin_to_list(signature_with_hash_type) |> Enum.drop(-1) |> :binary.list_to_bin()
+
+    point = Secp256Point.parse(sec_pubkey)
+    sig = Signature.parse(der_signature)
+    # Verify the signature using Secp256Point.verify
+    # push an encoded 1 or 0 depending on whether signature is verified
+    updated_stack =
+      case Secp256Point.verify(point, z, sig) do
+        true -> [stack | encode_num(1)]
+        false -> [stack | encode_num(0)]
+      end
+
+    {:ok, updated_stack}
+  end
+
+  def op_checksig(stack, _z) do
+    Logger.error("Stack length is less than 2 #{inspect(stack)}")
+    {:error, stack}
+  end
+
+  def op_equalverify(stack) do
+    {:ok, new_stack} = op_equal(stack)
+    {:ok, _} = op_verify(new_stack)
   end
 
   _opcode_names = %{
@@ -417,7 +448,7 @@ defmodule VM do
       #      125 => &__MODULE__.op_tuck/1,
       #      130 => &__MODULE__.op_size/1,
       135 => &__MODULE__.op_equal/1,
-      #      136 => &__MODULE__.op_equalverify/1,
+      136 => &__MODULE__.op_equalverify/1,
       #      139 => &__MODULE__.op_1add/1,
       #      140 => &__MODULE__.op_1sub/1,
       #      143 => &__MODULE__.op_negate/1,

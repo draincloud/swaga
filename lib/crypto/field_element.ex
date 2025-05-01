@@ -1,5 +1,3 @@
-require Logger
-
 defmodule FieldElement do
   # Always presented in the struct
   @enforce_keys [:num, :prime]
@@ -66,7 +64,6 @@ defmodule FieldElement do
 
   def mul(%FieldElement{num: num1, prime: prime}, %FieldElement{num: num2, prime: prime}) do
     sum = Integer.mod(num1 * num2, prime)
-    #    Logger.debug("sum #{inspect(num1)} * #{inspect(num2)} = #{inspect(sum)}")
     new(sum, prime)
   end
 
@@ -83,12 +80,9 @@ defmodule FieldElement do
   end
 
   def div(%FieldElement{num: num1, prime: prime}, %FieldElement{num: num2, prime: prime}) do
-    #    Logger.debug("num1 #{inspect(num1)}; num2 #{inspect(num2)}")
     pow_result = MathUtils.powmod(num2, prime - 2, prime)
-    #    Logger.debug("pow_result #{inspect(pow_result)};")
 
     div_result = Integer.mod(num1 * pow_result, prime)
-    #    Logger.debug("div_result #{inspect(div_result)};")
     new(div_result, prime)
   end
 

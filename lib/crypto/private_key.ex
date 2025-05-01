@@ -1,5 +1,3 @@
-require Logger
-
 defmodule PrivateKey do
   @enforce_keys [:secret, :point]
   defstruct [:secret, :point]
@@ -9,9 +7,9 @@ defmodule PrivateKey do
     %PrivateKey{secret: secret, point: Point.mul(g, secret)}
   end
 
-  def display(pk) do
-    Logger.debug("Private key #{inspect(pk)}")
-  end
+  #  def display(pk) do
+  #    Logger.debug("Private key #{inspect(pk)}")
+  #  end
 
   def sign(%PrivateKey{secret: secret, point: _point}, z) do
     n = Secp256Point.n()
@@ -42,7 +40,6 @@ defmodule PrivateKey do
 
     secret =
       if secret_size < 256 do
-        #        Logger.debug("secret #{inspect(secret)} bs-#{inspect(bit_size(secret))}")
         <<0::size(256 - secret_size)>> <> secret
       else
         secret

@@ -24,14 +24,21 @@ defmodule Secp256Point do
     Point.new(Secp256Field.new(x), Secp256Field.new(y), a, b)
   end
 
-  def get_g() do
-    new(@g_x, @g_y)
+  # Case when we pass field element instead of numbers
+  def new(%FieldElement{} = x, %FieldElement{} = y) do
+    a = Secp256Field.new(@a)
+    b = Secp256Field.new(@b)
+    Point.new(x, y, a, b)
   end
 
   def new(x, y, a, b) do
     a = Secp256Field.new(a)
     b = Secp256Field.new(b)
     Point.new(x, y, a, b)
+  end
+
+  def get_g() do
+    new(@g_x, @g_y)
   end
 
   # We can mod by n because nG = 0.
@@ -42,11 +49,6 @@ defmodule Secp256Point do
   end
 
   def verify(point, z, sig) do
-    #    s_inv = pow(sig.s, N - 2, N)  1
-    #    u = z * s_inv % N  2
-    #    v = sig.r * s_inv % N  3
-    #    total = u * G + v * self  4
-    #    return total.x.num == sig.r  5
     # s_inv (1/s) is calculated using Fermat’ little theorem on the order of the group,
     # n, which is prime.
     s_inv = MathUtils.powmod(sig.s, @n - 2, @n)
@@ -95,7 +97,7 @@ defmodule Secp256Point do
 
   # case 2 or 3 (is_even or not)
   def parse(<<is_even, x_num::binary>>) do
-    x = Secp256Field.new(x_num)
+    x = Secp256Field.new(:binary.decode_unsigned(x_num, :big))
     alpha = FieldElement.pow(x, 3) +++ Secp256Field.new(@b)
     beta = Secp256Field.sqrt(alpha)
     p = Secp256Field.p()

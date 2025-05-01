@@ -21,24 +21,32 @@ defmodule TxIn do
     end
   end
 
-  #  def new(prev_tx, prev_index) do
-  #    script_sig = 1
-  #    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
-  #  end
+  def new(prev_tx, prev_index, nil, nil) do
+    %TxIn{
+      prev_tx: prev_tx,
+      prev_index: prev_index,
+      script_sig: Script.new(),
+      sequence: 0xFFFFFFFF
+    }
+  end
 
   def new(prev_tx, prev_index, script_sig, sequence) do
     %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
   end
 
+  # Returns the byte serialization of the transaction input
   def serialize(%TxIn{
         prev_tx: prev_tx,
         prev_index: prev_index,
-        script_sig: _script_sig,
+        script_sig: script_sig,
         sequence: sequence
       }) do
-    result = :binary.bin_to_list(prev_tx) |> Enum.reverse()
-    result = result + MathUtils.int_to_little_endian(prev_index, 4)
-    result + MathUtils.int_to_little_endian(sequence, 4)
+    # Serialize prev_tx, little_endian
+    result = :binary.bin_to_list(prev_tx) |> Enum.reverse() |> :binary.list_to_bin()
+    # Serialize prev_index, 4 bytes
+    result = result <> MathUtils.int_to_little_endian(prev_index, 4)
+    result = result <> Script.serialize(script_sig)
+    result <> MathUtils.int_to_little_endian(sequence, 4)
   end
 
   def parse(s) when is_binary(s) do
@@ -57,18 +65,24 @@ defmodule TxIn do
      %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}}
   end
 
-  defp fetch_tx(hash, testnet) do
+  defp fetch_tx(hash, testnet) when is_binary(hash) do
     hex = Base.encode16(hash)
     TxFetcher.fetch(hex, testnet)
   end
 
-  def value(%{prev_tx: prev_tx, prev_index: index}, true) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx, true)
+  defp fetch_tx(hash, _testnet) do
+    raise "Hash must be binary, received #{inspect(hash)}"
+  end
+
+  #  Get the output value by looking up the tx hash
+  def value(%{prev_tx: prev_tx, prev_index: index}, testnet) do
+    %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
     Enum.at(outputs, index).amount
   end
 
-  def value(%{prev_tx: prev_tx, prev_index: index}, false) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx, false)
-    Enum.at(outputs, index).amount
+  # Get the ScriptPubKey by looking up the tx hash
+  def script_pubkey(%TxIn{prev_tx: prev_tx, prev_index: prev_index}, testnet) do
+    %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
+    Enum.at(outputs, prev_index).script_pubkey
   end
 end

@@ -1,6 +1,6 @@
-require Logger
-
 defmodule Tx do
+  @sighash_all 1
+
   @enforce_keys [
     :version,
     :tx_ins
@@ -29,17 +29,6 @@ defmodule Tx do
       testnet: testnet
     }
   end
-
-  #  def id(tx) do
-  #    hash(tx)
-  #  end
-  #
-  #  def hash(tx) do
-  #     :crypto.hash(:sha256, serialize(tx))
-  #     |> :binary.bin_to_list
-  #     |> Enum.reverse
-  #     |> :binary.list_to_bin
-  #  end
 
   def read_varint(<<0xFD, rest::binary>>) do
     <<two_bytes::binary-size(2), rest2::binary>> = rest
@@ -110,25 +99,137 @@ defmodule Tx do
     }
   end
 
-  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet) do
+  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
     input_sum =
       Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
 
     input_sum - Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
   end
 
-  #  def serialize(%Tx{
-  #        version: version,
-  #        tx_ins: tx_ins,
-  #        tx_outs: tx_outs,
-  #        locktime: locktime,
-  #        testnet: testnet
-  #      }) do
-  #    result = MathUtils.int_to_little_endian()
-  #    result = result + encode_varint(length(tx_ins))
-  #    result = result + Enum.reduce(tx_ins, fn x, acc -> x + acc end)
-  #    result = result + encode_varint(length(tx_outs))
-  #    result = result + Enum.reduce(tx_outs, fn x, acc -> x + acc end)
-  #    result + MathUtils.int_to_little_endian(locktime, 4)
-  #  end
+  # Checking the signature.
+  # A transaction has at least one signature per input.
+  # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
+  # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
+  #######
+  #  Returns the integer representation of the hash that needs to get
+  #  signed for index input_index
+  def sig_hash(
+        %Tx{
+          version: version,
+          tx_ins: inputs,
+          tx_outs: outputs,
+          testnet: testnet,
+          locktime: locktime
+        },
+        input_index
+      ) do
+    # start the serialization with version
+    # use int_to_little_endian in 4 bytes
+    signature = MathUtils.int_to_little_endian(version, 4)
+    # add how many inputs there are using encode_varint
+    signature = signature <> encode_varint(length(inputs))
+
+    # loop through each input
+    inputs_signatures =
+      inputs
+      |> Enum.with_index()
+      |> Enum.reduce("", fn {inp, i}, acc ->
+        # if the input index is ht one we're signing
+        script_pubkey =
+          if i == input_index do
+            # If the RedeemScript (p2sh script) was passed in -> that's the ScriptSig
+            # otherwise the previous tx's ScriptPubkey is the ScriptSig
+            TxIn.script_pubkey(inp, testnet)
+          else
+            nil
+            # Otherwise, the ScriptSig is nil
+          end
+
+        new_input = TxIn.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence)
+        serialized = TxIn.serialize(new_input)
+        acc <> serialized
+      end)
+
+    signature = signature <> inputs_signatures
+    signature = signature <> encode_varint(length(outputs))
+
+    serialized_outputs =
+      Enum.reduce(outputs, "", fn output, acc ->
+        acc <> TxOut.serialize(output)
+      end)
+
+    signature = signature <> serialized_outputs
+    signature = signature <> MathUtils.int_to_little_endian(locktime, 4)
+    signature = signature <> MathUtils.int_to_little_endian(@sighash_all, 4)
+    CryptoUtils.double_hash256(signature)
+  end
+
+  # Returns whether the input has a valid signature
+  def verify_input(%Tx{tx_ins: inputs, testnet: testnet} = tx, input_index) do
+    # Get the relevant input
+    input = Enum.at(inputs, input_index)
+    # Grab the previous ScriptPubKey
+    script_pubkey = TxIn.script_pubkey(input, testnet)
+    # Get the signature hash(z)
+    # Pass the redeemScript ot the sig_hash method
+    z = sig_hash(tx, input_index)
+    # Combined the current ScriptSig and the previous ScriptPubkey
+    combined = Script.add(input.script_sig, script_pubkey)
+    # evaluate the combined script
+    Script.evaluate(combined, z)
+  end
+
+  def verify(%Tx{tx_ins: inputs} = tx) do
+    if fee(tx) < 0 do
+      false
+    else
+      inputs
+      |> Enum.with_index()
+      |> Enum.all?(fn {_input, i} -> verify_input(tx, i) end)
+    end
+  end
+
+  def hash(%Tx{} = tx) do
+    tx
+    |> Tx.serialize()
+    |> CryptoUtils.hash256()
+    |> CryptoUtils.hash256()
+    |> :binary.bin_to_list()
+    |> Enum.reverse()
+    |> :binary.list_to_bin()
+  end
+
+  def id(%Tx{} = tx) do
+    tx |> hash |> Base.encode16(case: :lower)
+  end
+
+  # Returns the byte serialization of the transaction
+  def serialize(%Tx{
+        version: version,
+        tx_ins: tx_ins,
+        tx_outs: tx_outs,
+        locktime: locktime
+      }) do
+    # Serialize version
+    result = MathUtils.int_to_little_endian(version, 4)
+    # Encode varint on the number of inputs
+    result = result <> encode_varint(length(tx_ins))
+
+    # Serialize each input
+    serialized_inputs =
+      Enum.reduce(tx_ins, "", fn inp, acc ->
+        acc <> TxIn.serialize(inp)
+      end)
+
+    result = result <> serialized_inputs <> encode_varint(length(tx_outs))
+
+    serialized_outputs =
+      Enum.reduce(tx_outs, "", fn out, acc ->
+        serialized_output = TxOut.serialize(out)
+        acc <> serialized_output
+      end)
+
+    result = result <> serialized_outputs
+    result <> MathUtils.int_to_little_endian(locktime, 4)
+  end
 end

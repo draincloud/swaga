@@ -94,4 +94,69 @@ defmodule TxTest do
     transaction = Tx.parse(raw_tx)
     assert Tx.fee(transaction, false) == 140_500
   end
+
+  test "sig_hash" do
+    tx = TxFetcher.fetch("452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03")
+
+    want =
+      String.to_integer("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", 16)
+
+    assert Tx.sig_hash(tx, 0) == want
+  end
+
+  test "converting the modified transaction to z" do
+    modified_tx =
+      Base.decode16!(
+        "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000001976a914a802fc56c704ce87c42d7c92eb75e7896bdc41ae88acfeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac1943060001000000",
+        case: :lower
+      )
+
+    h256 = CryptoUtils.double_hash256(modified_tx)
+
+    assert Integer.to_string(h256, 16) |> String.downcase() ==
+             "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6"
+  end
+
+  test "verify p2pkh" do
+    tx = TxFetcher.fetch("452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03")
+    assert true == Tx.verify(tx)
+  end
+
+  test "verify_p2sh" do
+    tx = TxFetcher.fetch("46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b")
+    assert true == Tx.verify(tx)
+  end
+
+  @tag :in_progress
+  test "tx creation" do
+    prev_tx =
+      Base.decode16!("0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299",
+        case: :lower
+      )
+
+    prev_index = 13
+    tx_in = TxIn.new(prev_tx, prev_index, nil, nil)
+    change_amount = trunc(0.33 * 100_000_000)
+    change_h160 = Base58.decode("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
+    change_script = Script.p2pkh_script(change_h160)
+    change_output = TxOut.new(change_amount, change_script)
+    target_amount = trunc(0.1 * 100_000_000)
+    target_h160 = Base58.decode("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
+    target_script = Script.p2pkh_script(target_h160)
+    target_output = TxOut.new(target_amount, target_script)
+    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
+    id = Tx.id(tx)
+    assert id == "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11"
+  end
+
+  test "test tx serialize" do
+    raw_tx =
+      Base.decode16!(
+        "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600",
+        case: :mixed
+      )
+
+    tx = Tx.parse(raw_tx)
+    assert Tx.serialize(tx) == raw_tx
+  end
 end

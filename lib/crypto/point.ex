@@ -1,5 +1,5 @@
-import CustomOperators
 require Logger
+import CustomOperators
 
 defmodule Point do
   @enforce_keys [:x, :y, :a, :b]
@@ -43,7 +43,6 @@ defmodule Point do
         x_3_3 +++ b
 
       if FieldElement.equal?(y3, x3) == false do
-        #      Logger.error("Error creating fe_x=#{inspect(fe_x)}, fe_y=#{inspect(fe_y)}")
         raise ArgumentError, "Cannot create a point, y3 != x3"
       else
         %Point{x: fe_x, y: fe_y, a: a, b: b}
@@ -77,16 +76,11 @@ defmodule Point do
     s = y2 --- y1 &&& x2 --- x1
     pow_s = FieldElement.pow(s, 2)
     x_3 = pow_s --- x1
-    #        Logger.debug("s #{inspect(s)}")
     x3 = x_3 --- x2
-    #        Logger.debug("x3 #{inspect(x3)}")
     sub_x = x1 --- x3
-    #        Logger.debug("sub_x #{inspect(sub_x)}")
     y3 = s ||| sub_x
-    #        Logger.debug("y3 #{inspect(y3)}")
     y3 = y3 --- y1
-    #        Logger.debug("y1 #{inspect(y1)}")
-    #        Logger.debug("y3 #{inspect(y3)}")
+
     if y3.num == 0 do
       # Return the point at infinity
       %Point{x: nil, y: nil, a: a, b: b}
@@ -132,12 +126,6 @@ defmodule Point do
     if y.num == 0 do
       %Point{x: nil, y: nil, a: a, b: b}
     else
-      #      s = (3 * self.x**2 + self.a) / (2 * self.y)
-      #      x = s**2 - 2 * self.x
-      #      y = s * (self.x - x) - self.y
-      #      return self.__class__(x, y, self.a, self.b)
-      #      Logger.debug("x #{inspect(x)}; a #{inspect(a)}")
-      #      Logger.debug("y #{inspect(y)}; b #{inspect(b)}")
       divisor_y = y ||| FieldElement.new(2, y.prime)
 
       dividend_s =
@@ -161,7 +149,6 @@ defmodule Point do
   end
 
   defp mul(_point, 0, result) do
-    #    Logger.debug("Final result: #{inspect(result)}")
     result
   end
 

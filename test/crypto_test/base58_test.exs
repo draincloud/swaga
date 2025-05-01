@@ -19,4 +19,11 @@ defmodule Base58Test do
     assert "2LwjJQ47MqJbkRta9vxSGNmVC3VLxcMb6ZAoAEBrdEYj74C2X6ST8wFNAqcmCEqSkzUbj4HbNmi1veiAGFJJsKd7" ==
              Base58.encode_from_binary(to_encode)
   end
+
+  test "decode base58" do
+    addr = "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
+    h160 = Base58.decode(addr)
+    want = "507b27411ccf7f16f10297de6cef3f291623eddf"
+    assert h160 === want
+  end
 end

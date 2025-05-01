@@ -14,7 +14,7 @@ defmodule Script do
     %Script{cmds: cmds}
   end
 
-  def new do
+  def new() do
     %Script{cmds: []}
   end
 
@@ -70,8 +70,20 @@ defmodule Script do
     raise "Cmds must be a list, received #{inspect(cmds)}"
   end
 
-  def serialize_script_cmd(cmd, acc) when is_integer(cmd) do
-    acc <> MathUtils.int_to_little_endian(cmd, 1)
+  def preprocess_command(cmd, acc) do
+    cond do
+      is_integer(cmd) ->
+        acc <> MathUtils.int_to_little_endian(cmd, 1)
+
+      is_binary(cmd) and Helpers.is_hex_string?(cmd) ->
+        serialize_script_cmd(Base.decode16!(cmd, case: :mixed), acc)
+
+      is_binary(cmd) ->
+        serialize_script_cmd(cmd, acc)
+
+      true ->
+        raise "Unsupported command: #{inspect(cmd)}"
+    end
   end
 
   def serialize_script_cmd(cmd, acc) when byte_size(cmd) < 75 do
@@ -102,7 +114,9 @@ defmodule Script do
   end
 
   def raw_serialize(%{cmds: cmds}) do
-    Enum.reduce(cmds, <<>>, fn cmd, acc -> serialize_script_cmd(cmd, acc) end)
+    Enum.reduce(cmds, "", fn cmd, acc ->
+      preprocess_command(cmd, acc)
+    end)
   end
 
   def evaluate(%Script{cmds: cmds}, z) do
@@ -141,5 +155,11 @@ defmodule Script do
         new_stack = stack ++ [cmd]
         iter_over_cmds(rest, new_stack, alt_stack, z)
     end
+  end
+
+  # Takes a hash160 and returns the p2pkh ScriptPubKey
+  # OP_DUP OP_HASH160 address OP_EQUALVERIFY OP_CHECKSIG
+  def p2pkh_script(h160) do
+    Script.new([0x76, 0xA9, h160, 0x88, 0xAC])
   end
 end

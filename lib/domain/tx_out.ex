@@ -1,3 +1,5 @@
+require Logger
+
 defmodule TxOut do
   @enforce_keys [
     :amount,
@@ -14,8 +16,7 @@ defmodule TxOut do
   end
 
   def serialize(%{amount: amount, script_pubkey: script_pubkey}) do
-    result = MathUtils.int_to_little_endian(amount, 8)
-    result + script_pubkey
+    MathUtils.int_to_little_endian(amount, 8) <> Script.serialize(script_pubkey)
   end
 
   def parse(s) do

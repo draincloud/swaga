@@ -122,9 +122,30 @@ defmodule TxTest do
     assert true == Tx.verify(tx)
   end
 
-  @tag :in_progress
   test "verify_p2sh" do
     tx = TxFetcher.fetch("46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b")
     assert true == Tx.verify(tx)
+  end
+
+  @tag :in_progress
+  test "tx creation" do
+    prev_tx =
+      Base.decode16!("0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299",
+        case: :lower
+      )
+
+    prev_index = 13
+    tx_in = TxIn.new(prev_tx, prev_index, nil)
+    tx_outs = []
+    change_amount = trunc(0.33 * 100_000_000)
+    change_h160 = Base58.decode("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
+    change_script = Script.p2pkh_script(change_h160)
+    change_output = TxOut.new(change_amount, change_script)
+    target_amount = trunc(0.1 * 100_000_000)
+    target_h160 = Base58.decode("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
+    target_script = Script.p2pkh_script(target_h160)
+    target_output = TxOut.new(target_amount, target_script)
+    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, True)
+    Logger.debug("#{inspect(tx)}")
   end
 end

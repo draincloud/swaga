@@ -142,4 +142,10 @@ defmodule Script do
         iter_over_cmds(rest, new_stack, alt_stack, z)
     end
   end
+
+  # Takes a hash160 and returns the p2pkh ScriptPubKey
+  # OP_DUP OP_HASH160 address OP_EQUALVERIFY OP_CHECKSIG
+  def p2pkh_script(h160) do
+    Script.new([0x76, 0xA9, h160, 0x88, 0xAC])
+  end
 end

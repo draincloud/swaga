@@ -21,17 +21,17 @@ defmodule TxIn do
     end
   end
 
-  #  def new(prev_tx, prev_index) do
-  #    script_sig = 1
-  #    new(prev_tx, prev_index, script_sig, 0xFFFFFFFF)
-  #  end
-
-  def new(prev_tx, prev_index, script_sig, sequence) do
-    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
+  def new(prev_tx, prev_index, nil, nil) do
+    %TxIn{
+      prev_tx: prev_tx,
+      prev_index: prev_index,
+      script_sig: Script.new(),
+      sequence: 0xFFFFFFFF
+    }
   end
 
-  def new(prev_tx, prev_index, nil, sequence) do
-    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: Script.new(), sequence: sequence}
+  def new(prev_tx, prev_index, script_sig, sequence \\ 0xFFFFFFFF) do
+    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
   end
 
   # Returns the byte serialization of the transaction input

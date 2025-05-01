@@ -42,4 +42,32 @@ defmodule Base58 do
     b = b <> checksum
     encode_from_binary(b)
   end
+
+  # Take an address and get the 20-byte hash out of it. Opposite of encoding address
+  def decode(s) do
+    num =
+      s
+      |> String.graphemes()
+      |> Enum.reduce(0, fn c, acc ->
+        acc = acc * 58
+        {index, _} = :binary.match(@base58_alphabet, c)
+        acc + index
+      end)
+
+    combined = :binary.encode_unsigned(num, :big)
+    <<payload::binary-size(byte_size(combined) - 4), checksum::binary-size(4)>> = combined
+
+    <<first_4_bytes::binary-size(4), _::binary>> =
+      CryptoUtils.double_hash256(payload) |> :binary.encode_unsigned(:big)
+
+    if first_4_bytes != checksum do
+      raise "bad address, checksum is incorrect"
+    else
+      # First byte is the network prefix, the middle 20 are actual address
+      <<_first_byte::binary-size(1), result::binary-size(20), _checksum::binary-size(4)>> =
+        combined
+
+      Base.encode16(result, case: :lower)
+    end
+  end
 end

@@ -1,5 +1,3 @@
-require Logger
-
 defmodule PrivateKey do
   @enforce_keys [:secret, :point]
   defstruct [:secret, :point]

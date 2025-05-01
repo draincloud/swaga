@@ -198,8 +198,7 @@ defmodule VM do
 
   def op_hash256(stack) when is_list(stack) do
     {elem, _} = List.pop_at(stack, -1)
-    stack = stack ++ CryptoUtils.hash_256(elem)
-    {:ok, stack}
+    {:ok, stack ++ CryptoUtils.hash256(elem)}
   end
 
   def op_hash160(stack) when is_list(stack) and length(stack) < 1 do

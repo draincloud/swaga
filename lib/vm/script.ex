@@ -1,5 +1,3 @@
-require Logger
-
 defmodule Script do
   @enforce_keys [
     :cmds
@@ -111,17 +109,13 @@ defmodule Script do
 
   def serialize(%Script{} = script) do
     result = raw_serialize(script)
-    Logger.debug("raw #{inspect(Base.encode16(result))}")
     total = result |> :binary.bin_to_list() |> length
     Tx.encode_varint(total) <> result
   end
 
   def raw_serialize(%{cmds: cmds}) do
     Enum.reduce(cmds, "", fn cmd, acc ->
-      Logger.debug("cmd #{inspect(cmd)}")
-      result = preprocess_command(cmd, acc)
-      Logger.debug("105 RESULT #{inspect(Base.encode16(result))}")
-      result
+      preprocess_command(cmd, acc)
     end)
   end
 

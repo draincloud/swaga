@@ -1,5 +1,3 @@
-require Logger
-
 defmodule Tx do
   @sighash_all 1
 
@@ -192,20 +190,10 @@ defmodule Tx do
   end
 
   def hash(%Tx{} = tx) do
-    serialized =
-      tx
-      |> Tx.serialize()
-
-    Logger.debug("serialized #{inspect(Base.encode16(serialized))}")
-
-    hashed =
-      serialized
-      |> CryptoUtils.hash256()
-      |> CryptoUtils.hash256()
-
-    Logger.debug("hashed #{inspect(Base.encode16(hashed))}")
-
-    hashed
+    tx
+    |> Tx.serialize()
+    |> CryptoUtils.hash256()
+    |> CryptoUtils.hash256()
     |> :binary.bin_to_list()
     |> Enum.reverse()
     |> :binary.list_to_bin()
@@ -220,8 +208,7 @@ defmodule Tx do
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
-        locktime: locktime,
-        testnet: testnet
+        locktime: locktime
       }) do
     # Serialize version
     result = MathUtils.int_to_little_endian(version, 4)
@@ -235,17 +222,14 @@ defmodule Tx do
       end)
 
     result = result <> serialized_inputs <> encode_varint(length(tx_outs))
-    Logger.debug("result #{inspect(Base.encode16(result))}")
-    Logger.debug("tx_outs #{inspect(Base.encode16(result))}")
 
     serialized_outputs =
       Enum.reduce(tx_outs, "", fn out, acc ->
         serialized_output = TxOut.serialize(out)
-        Logger.debug("serialized_output #{inspect(Base.encode16(serialized_output))}")
         acc <> serialized_output
       end)
 
     result = result <> serialized_outputs
-    result = result <> MathUtils.int_to_little_endian(locktime, 4)
+    result <> MathUtils.int_to_little_endian(locktime, 4)
   end
 end

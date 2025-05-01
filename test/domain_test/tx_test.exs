@@ -144,11 +144,7 @@ defmodule TxTest do
     target_h160 = Base58.decode("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
     target_script = Script.p2pkh_script(target_h160)
     target_output = TxOut.new(target_amount, target_script)
-    Logger.debug("change output #{inspect(change_output)}")
-    Logger.debug("target output #{inspect(target_output)}")
-
     tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
-    Logger.debug("#{inspect(tx)}")
     id = Tx.id(tx)
     assert id == "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11"
   end

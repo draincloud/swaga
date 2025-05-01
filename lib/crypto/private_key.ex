@@ -29,8 +29,7 @@ defmodule PrivateKey do
         s
       end
 
-    Logger.debug("sign #{inspect(%Signature{r: r, s: s})}")
-    sig = %Signature{r: r, s: s}
+    %Signature{r: r, s: s}
   end
 
   def extract_point(%PrivateKey{point: point}) do

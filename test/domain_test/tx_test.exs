@@ -135,8 +135,7 @@ defmodule TxTest do
       )
 
     prev_index = 13
-    tx_in = TxIn.new(prev_tx, prev_index, nil)
-    tx_outs = []
+    tx_in = TxIn.new(prev_tx, prev_index, nil, nil)
     change_amount = trunc(0.33 * 100_000_000)
     change_h160 = Base58.decode("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
     change_script = Script.p2pkh_script(change_h160)
@@ -145,7 +144,23 @@ defmodule TxTest do
     target_h160 = Base58.decode("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
     target_script = Script.p2pkh_script(target_h160)
     target_output = TxOut.new(target_amount, target_script)
-    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, True)
+    Logger.debug("change output #{inspect(change_output)}")
+    Logger.debug("target output #{inspect(target_output)}")
+
+    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
     Logger.debug("#{inspect(tx)}")
+    id = Tx.id(tx)
+    assert id == "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11"
+  end
+
+  test "test tx serialize" do
+    raw_tx =
+      Base.decode16!(
+        "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600",
+        case: :mixed
+      )
+
+    tx = Tx.parse(raw_tx)
+    assert Tx.serialize(tx) == raw_tx
   end
 end

@@ -1,3 +1,5 @@
+require Logger
+
 defmodule Script do
   @enforce_keys [
     :cmds
@@ -70,8 +72,20 @@ defmodule Script do
     raise "Cmds must be a list, received #{inspect(cmds)}"
   end
 
-  def serialize_script_cmd(cmd, acc) when is_integer(cmd) do
-    acc <> MathUtils.int_to_little_endian(cmd, 1)
+  def preprocess_command(cmd, acc) do
+    cond do
+      is_integer(cmd) ->
+        acc <> MathUtils.int_to_little_endian(cmd, 1)
+
+      is_binary(cmd) and Helpers.is_hex_string?(cmd) ->
+        serialize_script_cmd(Base.decode16!(cmd, case: :mixed), acc)
+
+      is_binary(cmd) ->
+        serialize_script_cmd(cmd, acc)
+
+      true ->
+        raise "Unsupported command: #{inspect(cmd)}"
+    end
   end
 
   def serialize_script_cmd(cmd, acc) when byte_size(cmd) < 75 do
@@ -97,12 +111,18 @@ defmodule Script do
 
   def serialize(%Script{} = script) do
     result = raw_serialize(script)
+    Logger.debug("raw #{inspect(Base.encode16(result))}")
     total = result |> :binary.bin_to_list() |> length
     Tx.encode_varint(total) <> result
   end
 
   def raw_serialize(%{cmds: cmds}) do
-    Enum.reduce(cmds, <<>>, fn cmd, acc -> serialize_script_cmd(cmd, acc) end)
+    Enum.reduce(cmds, "", fn cmd, acc ->
+      Logger.debug("cmd #{inspect(cmd)}")
+      result = preprocess_command(cmd, acc)
+      Logger.debug("105 RESULT #{inspect(Base.encode16(result))}")
+      result
+    end)
   end
 
   def evaluate(%Script{cmds: cmds}, z) do

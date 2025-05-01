@@ -30,7 +30,7 @@ defmodule TxIn do
     }
   end
 
-  def new(prev_tx, prev_index, script_sig, sequence \\ 0xFFFFFFFF) do
+  def new(prev_tx, prev_index, script_sig, sequence) do
     %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
   end
 

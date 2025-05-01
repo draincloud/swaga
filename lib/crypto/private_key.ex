@@ -15,6 +15,7 @@ defmodule PrivateKey do
     n = Secp256Point.n()
     g = Secp256Point.get_g()
     k = :rand.uniform(n)
+
     r = Point.mul(g, k).x.num
     k_inv = MathUtils.powmod(k, n - 2, n)
     s = rem((z + r * secret) * k_inv, n)

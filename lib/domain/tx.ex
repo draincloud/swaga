@@ -69,7 +69,7 @@ defmodule Tx do
     raise "Integer too large"
   end
 
-  def parse(serialized_tx) when is_binary(serialized_tx) do
+  def parse(serialized_tx, testnet \\ false) when is_binary(serialized_tx) do
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
     {num_inputs, tx_rest} = read_varint(rest)
 
@@ -95,7 +95,7 @@ defmodule Tx do
       tx_ins: inputs,
       tx_outs: Enum.reverse(outputs),
       locktime: locktime,
-      testnet: false
+      testnet: testnet
     }
   end
 
@@ -231,5 +231,25 @@ defmodule Tx do
 
     result = result <> serialized_outputs
     result <> MathUtils.int_to_little_endian(locktime, 4)
+  end
+
+  def sign_input(%Tx{} = tx, input_index, %PrivateKey{} = private_key) do
+    # Sign the first input
+    z = sig_hash(tx, input_index)
+    der = PrivateKey.sign(private_key, z) |> Signature.der()
+    # The signature is a combination of the DER signature and the hash type
+    sig = der <> :binary.encode_unsigned(@sighash_all, :big)
+    sec = private_key.point |> Secp256Point.compressed_sec()
+    # The scriptSig of a p2pkh has two elements, the signature and SEC format public key
+    script_sig = Script.new([sig, sec])
+
+    updated_inputs =
+      List.replace_at(tx.tx_ins, input_index, %TxIn{
+        Enum.at(tx.tx_ins, input_index)
+        | script_sig: script_sig
+      })
+
+    updated = %Tx{tx | tx_ins: updated_inputs}
+    {verify_input(updated, input_index), updated}
   end
 end

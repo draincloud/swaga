@@ -1,3 +1,5 @@
+require Logger
+
 defmodule Tx do
   @sighash_all 1
 
@@ -69,7 +71,7 @@ defmodule Tx do
     raise "Integer too large"
   end
 
-  def parse(serialized_tx) when is_binary(serialized_tx) do
+  def parse(serialized_tx, testnet \\ false) when is_binary(serialized_tx) do
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
     {num_inputs, tx_rest} = read_varint(rest)
 
@@ -95,7 +97,7 @@ defmodule Tx do
       tx_ins: inputs,
       tx_outs: Enum.reverse(outputs),
       locktime: locktime,
-      testnet: false
+      testnet: testnet
     }
   end
 
@@ -167,6 +169,7 @@ defmodule Tx do
   # Returns whether the input has a valid signature
   def verify_input(%Tx{tx_ins: inputs, testnet: testnet} = tx, input_index) do
     # Get the relevant input
+    Logger.debug("inputs #{inspect(inputs)}")
     input = Enum.at(inputs, input_index)
     # Grab the previous ScriptPubKey
     script_pubkey = TxIn.script_pubkey(input, testnet)
@@ -232,4 +235,37 @@ defmodule Tx do
     result = result <> serialized_outputs
     result <> MathUtils.int_to_little_endian(locktime, 4)
   end
+
+  def sign_input(%Tx{} = tx, input_index, %PrivateKey{} = private_key) do
+    # Sign the first input
+    z = sig_hash(tx, input_index)
+    Logger.debug("z #{inspect(z)}")
+    der = PrivateKey.sign(private_key, z) |> Signature.der()
+    Logger.debug("der #{inspect(Base.encode16(der))}")
+    # The signature is a combination of the DER signature and the hash type
+    sig = der <> :binary.encode_unsigned(@sighash_all, :big)
+    Logger.debug("sig #{inspect(Base.encode16(sig))}")
+    sec = private_key.point |> Secp256Point.compressed_sec()
+    Logger.debug("sec #{inspect(Base.encode16(sec))}")
+    # The scriptSig of a p2pkh has two elements, the signature and SEC format public key
+    script_sig = Script.new([sig, sec])
+    Logger.debug("252 script #{inspect(Base.encode16(Enum.at(script_sig.cmds, 0)))}")
+    Logger.debug("inputs #{inspect(tx.tx_ins)}")
+
+    updated_inputs =
+      List.replace_at(tx.tx_ins, input_index, %TxIn{
+        Enum.at(tx.tx_ins, input_index)
+        | script_sig: script_sig
+      })
+
+    Logger.debug("updated_inputs #{inspect(updated_inputs)}")
+    script = Enum.at(updated_inputs, 0).script_sig.cmds
+    Logger.debug("first_script #{inspect(Base.encode16(Enum.at(script, 0)))}")
+    Logger.debug("first_script #{inspect(Base.encode16(Enum.at(script, 1)))}")
+    updated = %Tx{tx | tx_ins: updated_inputs}
+    {verify_input(updated, input_index), updated}
+  end
 end
+
+# 30450221008DFF35729F06444748C9A0EBC9E42224D42ADCDC3C60F7A7A80D7064378F2D3002202B1CE60E8A5C81407DBB76AA559903693CAD709195A8767796331AFCE2D4468301
+# 30450221008ed46aa2cf12d6d81065bfabe903670165b538f65ee9a3385e6327d80c66d3b502203124f804410527497329ec4715e18558082d489b218677bd029e7fa306a7223601

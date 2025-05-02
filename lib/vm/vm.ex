@@ -308,6 +308,115 @@ defmodule VM do
     {:ok, _} = op_verify(new_stack)
   end
 
+  def op_checkmultisig(stack, z) when length(stack) >= 1 do
+    [head | rest] = Enum.reverse(stack)
+
+    n = decode_num(head)
+
+    if length(rest) < n do
+      {:error, rest}
+    else
+      sec_pubkeys =
+        0..(n - 1)
+        |> Enum.reduce([], fn i, acc ->
+          elem = Enum.at(rest, i)
+          acc ++ [elem]
+        end)
+
+      [head | rest] = Enum.drop(rest, n)
+
+      m = decode_num(head)
+
+      if length(rest) < m + 1 do
+        false
+      else
+        der_signatures =
+          0..(n - 1)
+          |> Enum.reduce([], fn i, acc ->
+            elem = Enum.at(rest, i)
+            size = byte_size(elem)
+            <<signature::binary-size(size - 1), _last_elem::binary>> = elem
+            acc ++ [signature]
+          end)
+
+        # Remove one element because of the OP_CHECKMULTISIG bug
+        [_head | rest] = rest
+
+        points =
+          Enum.reduce(sec_pubkeys, [], fn sec, acc ->
+            parsed = Secp256Point.parse(sec)
+            acc ++ [parsed]
+          end)
+
+        sigs =
+          Enum.reduce(der_signatures, [], fn sig, acc ->
+            parsed = Signature.parse(sig)
+            acc ++ [parsed]
+          end)
+
+        #        Logger.debug("sigs #{inspect(sigs)}")
+
+        {:ok, _} =
+          Enum.reduce_while(sigs, {:ok, points}, fn sig, acc ->
+            {result, stack_points} = acc
+
+            result =
+              Enum.reduce_while(stack_points, {:ok, stack_points}, fn _, acc ->
+                Logger.debug("points accumulator #{inspect(acc)}")
+
+                {result, stack_points} = acc
+                [point | rest] = stack_points
+
+                Logger.debug("points accumulator #{inspect(point.x.num)}")
+                #                Logger.debug("points accumulator #{inspect(acc)}")
+                #                Logger.debug("SIG point verify #{inspect(sig)}")
+                #                Logger.debug("z point verify #{inspect(z)}")
+                #                Logger.debug("point point verify #{inspect(point)}")
+                #                Logger.debug("point verify #{inspect(Secp256Point.verify(point, z, sig))}")
+
+                if Secp256Point.verify(point, z, sig) do
+                  # We found the correct key
+                  {:halt, {:ok, rest}}
+                else
+                  # We keep looking for a right key
+                  {:cont, {:error, rest}}
+                end
+              end)
+
+            Logger.debug("result #{inspect(result)}")
+
+            case result do
+              # In case of ok -> we check next signature
+              {:ok, rest_of_points} -> {:cont, {:ok, rest_of_points}}
+              # In case of an error, we stop and return error
+              {:error, _} -> {:halt, :error}
+            end
+          end)
+
+        # Signatures are valid, so push a 1 to the stack
+        {:ok, rest ++ [encode_num(1)]}
+      end
+    end
+  end
+
+  def op_checkmultisig_point_verify(points, z, sig) do
+    #    if length(points) == 0 do
+    #      {:halt, :error}
+    #    else
+
+    Enum.reduce_while(points, [], fn point, acc ->
+      if Secp256Point.verify(point, z, sig) do
+        {:halt, :ok}
+      else
+        {:cont, :error}
+      end
+    end)
+  end
+
+  def op_checkmultisig(stack, z) do
+    {:error, stack}
+  end
+
   _opcode_names = %{
     0 => "OP_0",
     76 => "OP_PUSHDATA1",
@@ -477,7 +586,7 @@ defmodule VM do
       170 => &__MODULE__.op_hash256/1,
       172 => &__MODULE__.op_checksig/2,
       #      173 => &__MODULE__.op_checksigverify/2,
-      #      174 => &__MODULE__.op_checkmultisig/2,
+      174 => &__MODULE__.op_checkmultisig/2,
       #      175 => &__MODULE__.op_checkmultisigverify/2,
       176 => &__MODULE__.op_nop/1,
       #      177 => &__MODULE__.op_checklocktimeverify/3,

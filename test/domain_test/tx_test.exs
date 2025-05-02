@@ -159,7 +159,6 @@ defmodule TxTest do
     assert Tx.serialize(tx) == raw_tx
   end
 
-  @tag :in_progress
   test "sign input" do
     private_key = PrivateKey.new(8_675_309)
 

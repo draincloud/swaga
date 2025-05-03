@@ -354,17 +354,15 @@ defmodule VM do
             acc ++ [parsed]
           end)
 
-        #        Logger.debug("sigs #{inspect(sigs)}")
-
         {:ok, _} =
           Enum.reduce_while(sigs, {:ok, points}, fn sig, acc ->
-            {result, stack_points} = acc
+            {_result, stack_points} = acc
 
             result =
               Enum.reduce_while(stack_points, {:ok, stack_points}, fn _, acc ->
                 Logger.debug("points accumulator #{inspect(acc)}")
 
-                {result, stack_points} = acc
+                {_result, stack_points} = acc
                 [point | rest] = stack_points
 
                 Logger.debug("points accumulator #{inspect(point.x.num)}")
@@ -399,22 +397,18 @@ defmodule VM do
     end
   end
 
-  def op_checkmultisig_point_verify(points, z, sig) do
-    #    if length(points) == 0 do
-    #      {:halt, :error}
-    #    else
+  def op_checkmultisig(stack, _z) do
+    {:error, stack}
+  end
 
-    Enum.reduce_while(points, [], fn point, acc ->
+  def op_checkmultisig_point_verify(points, z, sig) do
+    Enum.reduce_while(points, [], fn point, _acc ->
       if Secp256Point.verify(point, z, sig) do
         {:halt, :ok}
       else
         {:cont, :error}
       end
     end)
-  end
-
-  def op_checkmultisig(stack, z) do
-    {:error, stack}
   end
 
   _opcode_names = %{

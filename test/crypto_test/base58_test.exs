@@ -26,4 +26,10 @@ defmodule Base58Test do
     want = "507b27411ccf7f16f10297de6cef3f291623eddf"
     assert h160 === want
   end
+
+  # Mainnet p2sh uses the 0x05 byte, which causes addresses to start with a 3 in Base58
+  test "p2sh addresses" do
+    h160 = Base.decode16!("74d691da1574e6b3c192ecfb52cc8984ee7b6c56", case: :lower)
+    assert "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh" == Base58.encode_base58_checksum(<<0x05>> <> h160)
+  end
 end

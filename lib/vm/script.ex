@@ -129,19 +129,22 @@ defmodule Script do
     {:ok}
   end
 
-  defp iter_over_cmds([cmd | rest], stack, alt_stack, z) do
+  defp iter_over_cmds([cmd | rest_cmds], stack, alt_stack, z) do
     case is_integer(cmd) do
       true ->
         operation = VM.fetch_operation(cmd)
 
         {:ok, new_stack} =
           cond do
+            # OP_IF, OP_NOTIF requires the cmds array
             cmd in [99, 100] ->
-              operation.(stack, rest)
+              operation.(stack, rest_cmds)
 
+            # OP_TOALTSTACK/OP_FROMALTSTACK requies the altstack
             cmd in [107, 108] ->
               operation.(stack, alt_stack)
 
+            # These are signing operations, they need a sig_hash to check
             cmd in [172, 173, 174, 175] ->
               operation.(stack, z)
 
@@ -149,11 +152,36 @@ defmodule Script do
               operation.(stack)
           end
 
-        iter_over_cmds(rest, new_stack, alt_stack, z)
+        iter_over_cmds(rest_cmds, new_stack, alt_stack, z)
 
       false ->
         new_stack = stack ++ [cmd]
-        iter_over_cmds(rest, new_stack, alt_stack, z)
+
+        case length(rest_cmds) == 3 do
+          true ->
+            [cmd1, cmd2 | _] = rest_cmds
+            # PayToScriptHash implementation
+            # 0xa9 -> OP_HASH160, 0x87 -> OP_EQUAL
+            if cmd == 0xA9 and is_binary(cmd1) and
+                 length(cmd1) == 20 and cmd2 == 0x87 do
+              # Execute the next three opcodes
+              # We're checking that the next three commands conform to the BIP0016
+              [_, h160, _ | cmds] = Enum.reverse(rest_cmds)
+              {:ok, updated_stack} = VM.op_hash160(new_stack)
+              new_stack = updated_stack ++ [h160]
+              {:ok, updated_stack} = VM.op_equal(new_stack)
+              {:ok, updated_stack} = VM.op_verify(updated_stack)
+              redeem_script = Tx.encode_varint(length(cmd)) <> cmd
+              {_, script} = Script.parse(redeem_script)
+              rest_cmds = cmds ++ script.cmds
+              iter_over_cmds(rest_cmds, updated_stack, alt_stack, z)
+            else
+              iter_over_cmds(rest_cmds, new_stack, alt_stack, z)
+            end
+
+          false ->
+            iter_over_cmds(rest_cmds, new_stack, alt_stack, z)
+        end
     end
   end
 
@@ -161,5 +189,31 @@ defmodule Script do
   # OP_DUP OP_HASH160 address OP_EQUALVERIFY OP_CHECKSIG
   def p2pkh_script(h160) do
     Script.new([0x76, 0xA9, h160, 0x88, 0xAC])
+  end
+
+  # Takes a byte sequence hash160 and returns a p2pkh address string
+  def h160_to_p2pkh_address(hash, testnet \\ false) do
+    # p2pkh has a prefix of b'\x00' for mainnet, b'\x6f' for testnet
+    prefix =
+      if testnet do
+        <<0x6F>>
+      else
+        <<0x00>>
+      end
+
+    Base58.encode_base58_checksum(prefix <> hash)
+  end
+
+  # Takes a byte sequence hash160 and returns a p2sh address string
+  def h160_to_p2sh_address(hash, testnet \\ false) do
+    # p2sh has a prefix of 0x05 for mainnet, 0xc4 for testnet
+    prefix =
+      if testnet do
+        <<0xC4>>
+      else
+        <<0x05>>
+      end
+
+    Base58.encode_base58_checksum(prefix <> hash)
   end
 end

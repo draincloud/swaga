@@ -68,7 +68,6 @@ defmodule BlockTest do
         )
       )
 
-    Logger.debug(block.version)
     assert block.version >>> 29 == 001
   end
 
@@ -155,11 +154,10 @@ defmodule BlockTest do
       )
 
     block = Block.parse(block_raw)
-    assert Block.target(block) == 0x13CE9000000000000000000000000000000000000000000
+    assert Block.bits_to_target(block.bits) == 0x13CE9000000000000000000000000000000000000000000
     assert trunc(Block.difficulty(block)) == 888_171_856_257
   end
 
-  @tag :in_progress
   test "check pow" do
     block_raw =
       Base.decode16!(
@@ -178,5 +176,13 @@ defmodule BlockTest do
 
     block = Block.parse(block_raw)
     assert not Block.check_pow(block)
+  end
+
+  @tag :in_progress
+  test "calculate new bits" do
+    prev_bits = Base.decode16!("54d80118", case: :lower)
+    time_differential = 302_400
+    want = Base.decode16!("00157617", case: :lower)
+    assert want == Block.calculate_new_bits(prev_bits, time_differential)
   end
 end

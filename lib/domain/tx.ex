@@ -256,11 +256,11 @@ defmodule Tx do
   end
 
   def is_coinbase(%Tx{tx_ins: inputs}) when length(inputs) == 1 do
-    only_input = Enum.at(inputs, 0)
+    [only_input] = inputs
     TxIn.is_coinbase(only_input)
   end
 
-  def is_coinbase(%Tx{tx_ins: inputs} = tx) do
+  def is_coinbase(%Tx{}) do
     false
   end
 
@@ -268,7 +268,7 @@ defmodule Tx do
   def coinbase_height(%Tx{tx_ins: inputs} = tx) do
     if is_coinbase(tx) do
       [only_input] = inputs
-      [coin_base_height | rest] = only_input.script_sig.cmds
+      [coin_base_height | _] = only_input.script_sig.cmds
       MathUtils.little_endian_to_int(coin_base_height)
     else
       nil

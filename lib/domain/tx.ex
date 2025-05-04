@@ -1,3 +1,5 @@
+require Logger
+
 defmodule Tx do
   @sighash_all 1
 
@@ -251,5 +253,25 @@ defmodule Tx do
 
     updated = %Tx{tx | tx_ins: updated_inputs}
     {verify_input(updated, input_index), updated}
+  end
+
+  def is_coinbase(%Tx{tx_ins: inputs}) when length(inputs) == 1 do
+    only_input = Enum.at(inputs, 0)
+    TxIn.is_coinbase(only_input)
+  end
+
+  def is_coinbase(%Tx{tx_ins: inputs} = tx) do
+    false
+  end
+
+  # According to BIP0034, scriptSig first element is height in coinbase tx
+  def coinbase_height(%Tx{tx_ins: inputs} = tx) do
+    if is_coinbase(tx) do
+      [only_input] = inputs
+      [coin_base_height | rest] = only_input.script_sig.cmds
+      MathUtils.little_endian_to_int(coin_base_height)
+    else
+      nil
+    end
   end
 end

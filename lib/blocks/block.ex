@@ -22,6 +22,8 @@ defmodule Block do
     # The timestamp is a Unix-style timestamp taking up 4 bytes.
     :timestamp,
     # Bits is a field that encodes the proof-of-work necessary in this block
+    # bits is a 4-byte (32-bit) compact representation of the target threshold
+    # that a block hash must be below to be considered valid.
     :bits,
     # This number is what is changed by miners when looking for proof-of-work
     :nonce

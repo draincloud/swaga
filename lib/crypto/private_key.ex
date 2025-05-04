@@ -7,10 +7,6 @@ defmodule PrivateKey do
     %PrivateKey{secret: secret, point: Point.mul(g, secret)}
   end
 
-  #  def display(pk) do
-  #    Logger.debug("Private key #{inspect(pk)}")
-  #  end
-
   def sign(%PrivateKey{secret: secret, point: _point}, z) do
     n = Secp256Point.n()
     g = Secp256Point.get_g()

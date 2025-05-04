@@ -360,17 +360,8 @@ defmodule VM do
 
             result =
               Enum.reduce_while(stack_points, {:ok, stack_points}, fn _, acc ->
-                Logger.debug("points accumulator #{inspect(acc)}")
-
                 {_result, stack_points} = acc
                 [point | rest] = stack_points
-
-                Logger.debug("points accumulator #{inspect(point.x.num)}")
-                #                Logger.debug("points accumulator #{inspect(acc)}")
-                #                Logger.debug("SIG point verify #{inspect(sig)}")
-                #                Logger.debug("z point verify #{inspect(z)}")
-                #                Logger.debug("point point verify #{inspect(point)}")
-                #                Logger.debug("point verify #{inspect(Secp256Point.verify(point, z, sig))}")
 
                 if Secp256Point.verify(point, z, sig) do
                   # We found the correct key
@@ -380,8 +371,6 @@ defmodule VM do
                   {:cont, {:error, rest}}
                 end
               end)
-
-            Logger.debug("result #{inspect(result)}")
 
             case result do
               # In case of ok -> we check next signature

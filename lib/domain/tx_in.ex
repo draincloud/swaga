@@ -85,4 +85,11 @@ defmodule TxIn do
     %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
     Enum.at(outputs, prev_index).script_pubkey
   end
+
+  def is_coinbase(%TxIn{prev_tx: prev_tx, prev_index: prev_index}) do
+    cond do
+      prev_index == 0xFFFFFFFF and prev_tx == :binary.copy(<<00>>, 32) -> true
+      true -> false
+    end
+  end
 end

@@ -1,3 +1,6 @@
+require Logger
+import Bitwise
+
 defmodule Block do
   @enforce_keys [
     :version,
@@ -10,10 +13,15 @@ defmodule Block do
 
   defstruct [
     :version,
+    # All blocks have to point to a previous block
     :prev_block,
+    # The Merkle root encodes all the ordered transactions in a 32-byte hash
     :merkle_root,
+    # The timestamp is a Unix-style timestamp taking up 4 bytes.
     :timestamp,
+    # Bits is a field that encodes the proof-of-work necessary in this block
     :bits,
+    # This number is what is changed by miners when looking for proof-of-work
     :nonce
   ]
 
@@ -81,5 +89,39 @@ defmodule Block do
     |> CryptoUtils.double_hash256()
     |> :binary.encode_unsigned()
     |> Helpers.reverse_binary()
+  end
+
+  def bip9(%Block{version: version}) do
+    version >>> 29 == 001
+  end
+
+  def bip91(%Block{version: version}) do
+    (version >>> 4 &&& 1) == 1
+  end
+
+  def bip141(%Block{version: version}) do
+    (version >>> 1 &&& 1) == 1
+  end
+
+  # Returns the proof-of-work target based on the bits
+  def target(%Block{bits: bits}) do
+    # last byte is exponent
+    <<rest_bits::binary-size(byte_size(bits) - 1), exponent>> = bits
+    #    Logger.debug("bits #{inspect(Base.encode16()}")
+    # the first three bytes are the coefficient in lttle endian
+    coefficient = MathUtils.little_endian_to_int(rest_bits)
+    # the formula is:
+    # coefficient * 256**(exponent-3)
+    coefficient * 256 ** (exponent - 3)
+  end
+
+  # difficulty = 0xffff × 256 ** (0x1d – 3) / target
+  def difficulty(%Block{} = block) do
+    0xFFFF * 256 ** (0x1D - 3) / target(block)
+  end
+
+  def check_pow(%Block{} = block) do
+    proof = block |> hash |> Helpers.reverse_binary() |> MathUtils.little_endian_to_int()
+    target(block) > proof
   end
 end

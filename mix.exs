@@ -27,7 +27,8 @@ defmodule Swaga.MixProject do
       {:poison, "~> 6.0"},
       {:plug, "~> 1.7"},
       {:cowboy, "~> 2.13"},
-      {:plug_cowboy, "~> 2.0"}
+      {:plug_cowboy, "~> 2.0"},
+      {:connection, "~> 1.1.0"}
     ]
   end
 end

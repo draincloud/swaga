@@ -31,6 +31,10 @@ defmodule VersionMessage do
             latest_block: 0,
             relay: false
 
+  def command() do
+    "version"
+  end
+
   def new(
         version \\ 70015,
         services \\ 0,
@@ -96,6 +100,7 @@ defmodule VersionMessage do
     network_services = MathUtils.int_to_little_endian(services, 8)
     ser_timestamp = MathUtils.int_to_little_endian(timestamp, 8)
     ser_result = protocol_version <> network_services <> ser_timestamp
+
     # receiver
     network_services_receiver = MathUtils.int_to_little_endian(receiver_services, 8)
     ip_v4_receiver_address = Helpers.ip_v4(receiver_ip)

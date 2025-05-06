@@ -1,7 +1,6 @@
 defmodule VersionMessageTest do
   use ExUnit.Case
 
-  @tag :in_progress
   test "serialize" do
     nonce = :binary.copy(<<0x00>>, 8)
 

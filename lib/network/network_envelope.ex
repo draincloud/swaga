@@ -36,7 +36,18 @@ defmodule NetworkEnvelope do
     Integer.to_string(ascii_command, 10) <> " : " <> Base.encode16(network.payload)
   end
 
-  def parse(serialized_network, testnet \\ false) when is_binary(serialized_network) do
+  def parse(serialized_network, testnet \\ false)
+
+  # todo
+  #  defmodule Framer do
+  #    @header_size 24  # 4-magic + 12-cmd + 4-len + 4-checksum
+  # create a framer to read buffer and concatenate at the end, if payload_size is bigger than actual payload
+
+  def parse("", _) do
+    raise "Serialized envelope is empty, try retrying"
+  end
+
+  def parse(serialized_network, testnet) when is_binary(serialized_network) do
     expected_magic =
       if testnet do
         <<0x0B, 0x11, 0x09, 0x07>>
@@ -47,12 +58,14 @@ defmodule NetworkEnvelope do
     <<network_magic::binary-size(4), command::binary-size(12), payload_length::binary-size(4),
       payload_checksum::binary-size(4), payload::binary>> = serialized_network
 
-    payload_size = payload_length |> MathUtils.little_endian_to_int()
+    if(expected_magic == network_magic) do
+      payload_size = payload_length |> MathUtils.little_endian_to_int()
 
-    <<payload_to_read::binary-size(payload_size), rest::binary>> =
-      payload
+      Logger.debug("51: No match #{inspect(payload_size)} and #{inspect(byte_size(payload))}")
 
-    if expected_magic == network_magic do
+      <<payload_to_read::binary-size(payload_size), rest::binary>> =
+        payload
+
       <<first4bytes::binary-size(4), _::binary>> =
         CryptoUtils.double_hash256(payload_to_read) |> :binary.encode_unsigned(:big)
 

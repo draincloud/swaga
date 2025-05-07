@@ -84,6 +84,25 @@ defmodule Block do
     }
   end
 
+  # return rest of binary string if true is passed
+  #  def parse(serialized_block, true)
+  #      when is_binary(serialized_block) and byte_size(serialized_block) == 80 do
+  #    <<version::binary-size(4), prev_block::binary-size(32), merkle_root::binary-size(32),
+  #      timestamp::binary-size(4), bits::binary-size(4), nonce::binary-size(4)>> = serialized_block
+  #
+  #    block = %Block{
+  #      version: MathUtils.little_endian_to_int(version),
+  #      # From little endian
+  #      prev_block: Helpers.reverse_binary(prev_block),
+  #      # From little endian
+  #      merkle_root: Helpers.reverse_binary(merkle_root),
+  #      timestamp: MathUtils.little_endian_to_int(timestamp),
+  #      bits: bits,
+  #      nonce: nonce
+  #    }
+  #    {block, }
+  #  end
+
   def parse(block) do
     raise "Size is not correct, expected 80, got #{inspect(byte_size(block))}"
   end
@@ -181,5 +200,16 @@ defmodule Block do
       end
 
     target_to_bits(new_target)
+  end
+
+  def genesis() do
+    Base.decode16!(
+      "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
+      case: :lower
+    )
+  end
+
+  def lowest_bits() do
+    Base.decode16!("ffff001d", case: :lower)
   end
 end

@@ -4,13 +4,13 @@ require Logger
 defmodule Socket do
   use Connection
 
-  def start_link(host, port, opts \\ [:binary, active: false], timeout \\ 5000) do
+  def start_link(host, port, opts \\ [:binary, active: false], timeout \\ 10000) do
     Connection.start_link(__MODULE__, {host, port, opts, timeout})
   end
 
   def send(conn, data), do: Connection.call(conn, {:send, data})
 
-  def recv(conn, bytes \\ 0, timeout \\ 3000) do
+  def recv(conn, bytes \\ 0, timeout \\ 10000) do
     Connection.call(conn, {:recv, bytes, timeout})
   end
 

@@ -49,13 +49,13 @@ defmodule BitcoinNode do
     Logger.debug("Sending #{module.command()}")
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
-      ok -> {:ok}
+      :ok -> {:ok}
       {:error, error} -> raise "Error sending request #{error}"
     end
   end
 
   def read(%BitcoinNode{socket: socket, testnet: _testnet}) do
-    case Socket.recv(socket) do
+    case Socket.recv(socket, 0) do
       {:error, error} ->
         raise "Error reading from socket, #{inspect(error)}"
 
@@ -65,6 +65,7 @@ defmodule BitcoinNode do
     end
   end
 
+  # On version we send out VerAck message
   def wait_for(%BitcoinNode{} = node, command_to_match, "version" = command_to_match) do
     send(node, %{command: VerAckMessage.command()}, VerAckMessage)
   end
@@ -73,16 +74,15 @@ defmodule BitcoinNode do
     send(node, %{command: PongMessage.command()}, PongMessage)
   end
 
-  def wait_for(%BitcoinNode{} = node, command_to_match, "verack" = command_to_match) do
+  def wait_for(%BitcoinNode{}, command_to_match, "verack" = command_to_match) do
     Logger.debug("Received verack message, ignoring")
-    %NetworkEnvelope{command: parsed_command} = read(node)
-    wait_for(node, parsed_command, command_to_match)
+    {:ok}
   end
 
   # loop until the command is found
   def wait_for(%BitcoinNode{} = node, not_eq_command, command_to_match) do
     Logger.debug("No match #{inspect(not_eq_command)} and #{inspect(command_to_match)}")
-    %NetworkEnvelope{command: parsed_command} = read(node)
+    {%NetworkEnvelope{command: parsed_command}, _rest_bin} = read(node)
     wait_for(node, parsed_command, command_to_match)
   end
 
@@ -90,7 +90,12 @@ defmodule BitcoinNode do
   # Handshake is sending a version message and getting a VerAck back
   def handshake(%BitcoinNode{} = node) do
     {:ok} = send(node, VersionMessage.new(), VersionMessage)
-    %NetworkEnvelope{command: parsed_command} = read(node)
-    wait_for(node, parsed_command, VersionMessage.command())
+    # So we're reading version and verack message from the node
+    {%NetworkEnvelope{command: "version"}, rest_bin} = read(node)
+    # match with verack command, payload must be empty and rest_bin as well
+    {%NetworkEnvelope{command: "verack", payload: ""}, ""} =
+      NetworkEnvelope.parse(rest_bin)
+
+    :ok
   end
 end

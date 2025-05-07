@@ -49,7 +49,7 @@ defmodule NetworkEnvelope do
 
     payload_size = payload_length |> MathUtils.little_endian_to_int()
 
-    <<payload_to_read::binary-size(payload_size), _::binary>> =
+    <<payload_to_read::binary-size(payload_size), rest::binary>> =
       payload
 
     if expected_magic == network_magic do
@@ -57,11 +57,11 @@ defmodule NetworkEnvelope do
         CryptoUtils.double_hash256(payload_to_read) |> :binary.encode_unsigned(:big)
 
       if payload_checksum == first4bytes do
-        %NetworkEnvelope{
-          command: String.trim(command) |> String.trim("\0"),
-          payload: payload_to_read,
-          magic: network_magic
-        }
+        {%NetworkEnvelope{
+           command: String.trim(command) |> String.trim("\0"),
+           payload: payload_to_read,
+           magic: network_magic
+         }, rest}
       else
         raise "Checksum is not equal to first 4 bytes of hash"
       end

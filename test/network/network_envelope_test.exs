@@ -3,7 +3,7 @@ defmodule NetworkEnvelopeTest do
 
   test "parse network message" do
     message = Base.decode16!("f9beb4d976657261636b000000000000000000005df6e0e2", case: :lower)
-    network = NetworkEnvelope.parse(message)
+    {network, _} = NetworkEnvelope.parse(message)
     assert network.command == "verack"
     assert network.payload == ""
   end
@@ -16,7 +16,7 @@ defmodule NetworkEnvelopeTest do
       )
 
     <<_::binary-size(24), payload::binary>> = msg
-    network = NetworkEnvelope.parse(msg)
+    {network, _rest_bin} = NetworkEnvelope.parse(msg)
     assert network.command == "version"
     assert network.payload == payload
   end
@@ -31,7 +31,7 @@ defmodule NetworkEnvelopeTest do
         case: :lower
       )
 
-    network = NetworkEnvelope.parse(msg)
+    {network, _} = NetworkEnvelope.parse(msg)
     assert want == Base.encode16(NetworkEnvelope.serialize(network), case: :lower)
   end
 end

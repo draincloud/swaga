@@ -32,8 +32,8 @@ defmodule SocketTest do
     :ok = Socket.send(pid, NetworkEnvelope.serialize(envelope))
 
     {:ok, data} = Socket.recv(pid)
-    %{command: command} = NetworkEnvelope.parse(data)
+    {network, _} = NetworkEnvelope.parse(data)
 
-    assert "version" == command
+    assert "version" == network.command
   end
 end

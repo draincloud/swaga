@@ -15,20 +15,9 @@ defmodule HeadersMessageTest do
     get_headers = GetHeadersMessage.new(genesis_hash)
 
     {:ok} = BitcoinNode.send(node, get_headers, GetHeadersMessage)
-    # Headers Message
-
-    #    message =
-    #      BitcoinNode.wait_for(node, required_command, HeadersMessage, "")
-
-    result = BitcoinNode.read_while(node, [], "getheaders")
+    result = BitcoinNode.read_while(node, [], "headers")
     Logger.debug("message #{inspect(result)}")
-
-    raise "stop"
-
-    #    Enum.each(1..19, fn x ->
-    #      nil
-    #      #      headers = BitcoinNode.parse_command(node, command, HeadersMessage.command())
-    #    end)
+    assert result.command == "headers"
   end
 
   test "parse" do

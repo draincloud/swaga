@@ -40,7 +40,7 @@ defmodule GetHeadersMessage do
     {num_headers, rest} = Tx.read_varint(serialized)
 
     {blocks, _bin} =
-      Enum.reduce(0..num_headers, {[], rest}, fn x, acc ->
+      Enum.reduce(0..num_headers, {[], rest}, fn _header, acc ->
         <<block_header::binary-size(80), rest_stream::binary>> = rest
         parsed = Block.parse(block_header)
         {num_txs, rest} = Tx.read_varint(rest_stream)

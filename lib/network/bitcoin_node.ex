@@ -69,9 +69,11 @@ defmodule BitcoinNode do
 
         if do_parse do
           case NetworkEnvelope.parse(prev_bin <> data) do
+            # If we get an error, we read again
             {:missing_payload_size, errored_data} ->
               read(node, errored_data)
 
+            # If it's correctly parsed, then we return it
             network ->
               Logger.debug("Parsed data #{inspect(NetworkEnvelope.parse(prev_bin <> data))}")
               network
@@ -84,15 +86,15 @@ defmodule BitcoinNode do
 
   # 2 args, to start recursive_process
   def read_while(node, parsed_envelopes, required_command, prev_bin \\ "") do
-    Logger.debug("parsed_envelopes #{inspect(parsed_envelopes)}")
-    {network, remaining_buffer} = read(node, prev_bin)
+    {network, _remaining} = read(node, prev_bin)
+    parsed = parsed_envelopes ++ [network]
 
-    case Enum.find(parsed_envelopes, fn env -> env.command == required_command end) do
+    case Enum.find(parsed, fn env -> env.command == required_command end) do
       nil ->
-        read_while(node, parsed_envelopes ++ [network], required_command, prev_bin)
+        read_while(node, parsed, required_command, prev_bin)
 
-      _envelope ->
-        parsed_envelopes
+      envelope ->
+        envelope
     end
   end
 

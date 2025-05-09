@@ -54,79 +54,47 @@ defmodule BitcoinNode do
     end
   end
 
-  def read(%BitcoinNode{socket: socket, testnet: _testnet}, bytes \\ 0) do
+  def read(
+        %BitcoinNode{socket: socket, testnet: _testnet} = node,
+        prev_bin \\ "",
+        do_parse \\ true,
+        bytes \\ 0
+      ) do
     case Socket.recv(socket, bytes) do
       {:error, error} ->
         raise "Error reading from socket, #{inspect(error)}"
 
       {:ok, data} ->
-        Logger.debug("Data from socket #{inspect(data)}")
-        Logger.debug("Data from socket #{inspect(NetworkEnvelope.parse(data))}")
-        NetworkEnvelope.parse(data)
+        Logger.debug("Data from socket #{inspect(prev_bin <> data)}")
+
+        if do_parse do
+          case NetworkEnvelope.parse(prev_bin <> data) do
+            {:missing_payload_size, errored_data} ->
+              read(node, errored_data)
+
+            network ->
+              Logger.debug("Parsed data #{inspect(NetworkEnvelope.parse(prev_bin <> data))}")
+              network
+          end
+        else
+          data
+        end
     end
   end
 
   # 2 args, to start recursive_process
-  def read_while(node, parsed_envelopes, required_command) do
+  def read_while(node, parsed_envelopes, required_command, prev_bin \\ "") do
     Logger.debug("parsed_envelopes #{inspect(parsed_envelopes)}")
-    {network, rest_bin} = read(node)
-    Logger.debug("72:rest_bin #{inspect(rest_bin)}")
-    read_while(node, parsed_envelopes ++ [network], required_command, rest_bin)
-  end
+    {network, remaining_buffer} = read(node, prev_bin)
 
-  # return array if found
-  def read_while(node, parsed_envelopes, required_command, "") do
     case Enum.find(parsed_envelopes, fn env -> env.command == required_command end) do
       nil ->
-        read_while(node, parsed_envelopes, required_command)
+        read_while(node, parsed_envelopes ++ [network], required_command, prev_bin)
 
       _envelope ->
         parsed_envelopes
     end
   end
-
-  # if rest_bin not empty string, parse only rest_bin
-  def read_while(node, parsed_envelopes, required_command, rest) do
-    {network, rest_bin} = NetworkEnvelope.parse(rest)
-    Logger.debug("90:rest #{inspect(rest_bin)}")
-    read_while(node, parsed_envelopes ++ [network], required_command, rest_bin)
-  end
-
-  #  # This is the general case, where last arg is empty string,
-  #  # it means that we did read all socket bytes,
-  #  # so we have to read now
-  #  def wait_for(%BitcoinNode{} = node, required_command, module, rest_bin) do
-  #    {%NetworkEnvelope{command: command, payload: payload}, rest_bin} = BitcoinNode.read(node, 80)
-  #
-  #    if command == required_command do
-  #      Logger.debug("75: No match #{inspect(required_command)} and #{inspect(command)}")
-  #      module.parse(payload)
-  #    else
-  #      wait_for(node, required_command, module, rest_bin)
-  #    end
-  #  end
-
-  #  def wait_for(%BitcoinNode{} = node, required_command, module, not_empty_binary) do
-  #    {%NetworkEnvelope{command: command, payload: payload}, rest_bin} =
-  #      NetworkEnvelope.parse(not_empty_binary)
-  #
-  #    if command == required_command do
-  #      module.parse(payload)
-  #    else
-  #      Logger.debug("87: No match #{inspect(required_command)} and #{inspect(command)}")
-  #      wait_for(node, required_command, module, rest_bin)
-  #    end
-  #  end
-
-  #  def wait_for(%BitcoinNode{} = node, required_command, module, rest_bin) do
-  #    {%NetworkEnvelope{command: command, payload: payload}, rest_bin} = BitcoinNode.read(node)
-  #
-  #    if command == required_command do
-  #      module.parse(payload)
-  #    else
-  #      wait_for(node, required_command, module, rest_bin)
-  #    end
-  #  end
 
   # On version we send out VerAck message
   def parse_command(%BitcoinNode{} = node, command_to_match, "version" = command_to_match) do

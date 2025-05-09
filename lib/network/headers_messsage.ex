@@ -14,6 +14,7 @@ defmodule HeadersMessage do
 
     {blocks, _bin} =
       Enum.reduce(1..num_headers, {[], rest}, fn _, {acc, bin_to_read} ->
+        # Get the block header
         <<block_header::binary-size(80), rest_stream::binary>> = bin_to_read
         parsed = Block.parse(block_header)
         {num_txs, rest} = Tx.read_varint(rest_stream)

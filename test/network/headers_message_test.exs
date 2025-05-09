@@ -11,13 +11,22 @@ defmodule HeadersMessageTest do
     node = BitcoinNode.new(~c"ns343680.ip-94-23-21.eu", 8333)
     :ok = BitcoinNode.handshake(node)
 
-    required_command = HeadersMessage.command()
     get_headers = GetHeadersMessage.new(genesis_hash)
 
     {:ok} = BitcoinNode.send(node, get_headers, GetHeadersMessage)
-    result = BitcoinNode.read_while(node, [], "headers")
-    Logger.debug("message #{inspect(result)}")
-    assert result.command == "headers"
+
+    %HeadersMessage{blocks: blocks} =
+      BitcoinNode.read_while(node, [], "headers").payload |> HeadersMessage.parse()
+
+    Enum.each(blocks, fn b ->
+      true = Block.check_pow(b)
+      assert b.bits == expected_bits
+    end)
+
+    # We get exactly 2000 blocks
+    assert 2000 == length(blocks)
+
+    Logger.debug("message #{inspect(length(blocks))}")
   end
 
   test "parse" do

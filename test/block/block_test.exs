@@ -178,7 +178,6 @@ defmodule BlockTest do
     assert not Block.check_pow(block)
   end
 
-  @tag :in_progress
   test "calculate new bits" do
     prev_bits = Base.decode16!("54d80118", case: :lower)
     time_differential = 302_400

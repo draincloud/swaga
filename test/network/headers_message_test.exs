@@ -3,7 +3,6 @@ require Logger
 defmodule HeadersMessageTest do
   use ExUnit.Case
 
-  @tag :in_progress
   test "download the headers, check their proof-of-work and validate the block header difficulty" do
     genesis_block = Block.parse(Block.genesis())
     genesis_hash = Block.hash(genesis_block)
@@ -25,8 +24,6 @@ defmodule HeadersMessageTest do
 
     # We get exactly 2000 blocks
     assert 2000 == length(blocks)
-
-    Logger.debug("message #{inspect(length(blocks))}")
   end
 
   test "parse" do

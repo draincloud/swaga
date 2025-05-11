@@ -10,7 +10,8 @@ defmodule Block do
     :merkle_root,
     :timestamp,
     :bits,
-    :nonce
+    :nonce,
+    :tx_hashes
   ]
 
   defstruct [
@@ -26,7 +27,8 @@ defmodule Block do
     # that a block hash must be below to be considered valid.
     :bits,
     # This number is what is changed by miners when looking for proof-of-work
-    :nonce
+    :nonce,
+    :tx_hashes
   ]
 
   def new(
@@ -35,7 +37,8 @@ defmodule Block do
         merkle_root,
         timestamp,
         bits,
-        nonce
+        nonce,
+        tx_hashes \\ []
       ) do
     %Block{
       version: version,
@@ -43,8 +46,17 @@ defmodule Block do
       merkle_root: merkle_root,
       timestamp: timestamp,
       bits: bits,
-      nonce: nonce
+      nonce: nonce,
+      tx_hashes: tx_hashes
     }
+  end
+
+  def validate_merkle_root(%Block{merkle_root: root, tx_hashes: tx_hashes}) do
+    # we need to reverse hashes because of little-endian
+    calculated_root =
+      tx_hashes |> Enum.map(fn x -> Helpers.reverse_binary(x) end) |> MerkleTree.merkle_root()
+
+    Helpers.reverse_binary(root) == calculated_root
   end
 
   #  Returns the 80 byte block header
@@ -72,36 +84,15 @@ defmodule Block do
     <<version::binary-size(4), prev_block::binary-size(32), merkle_root::binary-size(32),
       timestamp::binary-size(4), bits::binary-size(4), nonce::binary-size(4)>> = serialized_block
 
-    %Block{
-      version: MathUtils.little_endian_to_int(version),
-      # From little endian
-      prev_block: Helpers.reverse_binary(prev_block),
-      # From little endian
-      merkle_root: Helpers.reverse_binary(merkle_root),
-      timestamp: MathUtils.little_endian_to_int(timestamp),
-      bits: bits,
-      nonce: nonce
-    }
+    new(
+      MathUtils.little_endian_to_int(version),
+      Helpers.reverse_binary(prev_block),
+      Helpers.reverse_binary(merkle_root),
+      MathUtils.little_endian_to_int(timestamp),
+      bits,
+      nonce
+    )
   end
-
-  # return rest of binary string if true is passed
-  #  def parse(serialized_block, true)
-  #      when is_binary(serialized_block) and byte_size(serialized_block) == 80 do
-  #    <<version::binary-size(4), prev_block::binary-size(32), merkle_root::binary-size(32),
-  #      timestamp::binary-size(4), bits::binary-size(4), nonce::binary-size(4)>> = serialized_block
-  #
-  #    block = %Block{
-  #      version: MathUtils.little_endian_to_int(version),
-  #      # From little endian
-  #      prev_block: Helpers.reverse_binary(prev_block),
-  #      # From little endian
-  #      merkle_root: Helpers.reverse_binary(merkle_root),
-  #      timestamp: MathUtils.little_endian_to_int(timestamp),
-  #      bits: bits,
-  #      nonce: nonce
-  #    }
-  #    {block, }
-  #  end
 
   def parse(block) do
     raise "Size is not correct, expected 80, got #{inspect(byte_size(block))}"

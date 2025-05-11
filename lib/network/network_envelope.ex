@@ -118,10 +118,6 @@ defmodule NetworkEnvelope do
          }, rest}
 
       :incorrect_payload_size ->
-        Logger.debug(
-          "Incorrect payload #{inspect(payload_size)} and #{inspect(byte_size(payload))}"
-        )
-
         {:missing_payload_size, serialized_network}
     end
   end

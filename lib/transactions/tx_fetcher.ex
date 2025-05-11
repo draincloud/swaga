@@ -11,7 +11,6 @@ defmodule TxFetcher do
 
   def fetch(tx_id, is_testnet \\ false) do
     response = Req.get!(get_url(is_testnet) <> "/tx/" <> tx_id <> "/hex")
-    Logger.info(response)
     decoded = Base.decode16!(response.body, case: :lower)
     decoded_list = :binary.bin_to_list(decoded)
     fifth_elem = Enum.at(decoded_list, 4)

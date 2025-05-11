@@ -24,8 +24,6 @@ defmodule HeadersMessageTest do
 
     # We get exactly 2000 blocks
     assert 2000 == length(blocks)
-
-    Logger.debug("message #{inspect(length(blocks))}")
   end
 
   test "parse" do

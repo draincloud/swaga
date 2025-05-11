@@ -98,32 +98,6 @@ defmodule BitcoinNode do
     end
   end
 
-  # On version we send out VerAck message
-  def parse_command(%BitcoinNode{} = node, command_to_match, "version" = command_to_match) do
-    send(node, %{command: VerAckMessage.command()}, VerAckMessage)
-  end
-
-  def parse_command(%BitcoinNode{} = node, command_to_match, "ping" = command_to_match) do
-    send(node, %{command: PongMessage.command()}, PongMessage)
-  end
-
-  def parse_command(%BitcoinNode{}, command_to_match, "verack" = command_to_match) do
-    Logger.debug("Received verack message, ignoring")
-    {:ok}
-  end
-
-  def parse_command(%BitcoinNode{}, command_to_match, "getheaders" = command_to_match) do
-    Logger.debug("Received getheaders message, ignoring")
-    {:ok}
-  end
-
-  # loop until the command is found
-  def parse_command(%BitcoinNode{} = node, not_eq_command, command_to_match) do
-    Logger.debug("No match #{inspect(not_eq_command)} and #{inspect(command_to_match)}")
-    {%NetworkEnvelope{command: parsed_command}, _rest_bin} = read(node)
-    parse_command(node, parsed_command, command_to_match)
-  end
-
   # Do a handshake with the other node
   # Handshake is sending a version message and getting a VerAck back
   def handshake(%BitcoinNode{} = node) do

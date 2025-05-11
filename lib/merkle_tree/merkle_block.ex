@@ -1,4 +1,3 @@
-require Logger
 # Merkle Block is used for SPV-clients
 defmodule MerkleBlock do
   @enforce_keys [
@@ -64,8 +63,6 @@ defmodule MerkleBlock do
     txs_count = MathUtils.little_endian_to_int(number_of_txs)
     # We read the number of hashes, and all is left is hashes and flags
     {hashes_count, _} = Tx.read_varint(number_of_hashes)
-    Logger.debug("hashes_count #{inspect(hashes_count)}")
-    Logger.debug("hashes_flags #{inspect(byte_size(rest))}")
     <<hashes::binary-size(32 * hashes_count), flag_bytes::binary>> = rest
 
     {parsed_hashes, _} =

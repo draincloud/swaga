@@ -110,7 +110,9 @@ defmodule MerkleTree do
   end
 
   @doc """
-  calculate the root, given the appropriate flag bits and hashes
+  The point of populating this Merkle tree is to calculate the root. Each loop iteration processes one node until the root is calculated
+  hashes = For leaf nodes, we are always given the hash
+
   """
   def populate_tree(%MerkleTree{} = tree, flag_bits, hashes) do
     # We populate until we have the root

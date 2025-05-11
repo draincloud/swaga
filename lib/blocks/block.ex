@@ -56,10 +56,6 @@ defmodule Block do
     calculated_root =
       tx_hashes |> Enum.map(fn x -> Helpers.reverse_binary(x) end) |> MerkleTree.merkle_root()
 
-    Logger.debug(
-      "root -> #{root |> Helpers.reverse_binary() |> Base.encode16(case: :lower)}, calc: #{inspect(calculated_root) |> Base.encode16(case: :lower)}"
-    )
-
     Helpers.reverse_binary(root) == calculated_root
   end
 

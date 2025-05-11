@@ -69,7 +69,7 @@ defmodule MerkleBlock do
     <<hashes::binary-size(32 * hashes_count), flag_bytes::binary>> = rest
 
     {parsed_hashes, _} =
-      Enum.reduce(1..hashes_count, {[], hashes}, fn hash, {acc, bin} ->
+      Enum.reduce(1..hashes_count, {[], hashes}, fn _, {acc, bin} ->
         <<hash::binary-size(32), rest::binary>> = bin
         {acc ++ [hash |> Helpers.reverse_binary()], rest}
       end)

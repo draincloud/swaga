@@ -19,18 +19,14 @@ defmodule MerkleTree do
       |> Float.ceil()
       |> round()
 
-    Logger.debug("max depth #{inspect(max_depth)}")
-
     nodes =
       0..max_depth
       |> Enum.with_index()
-      |> Enum.reduce([], fn {i, x}, acc ->
+      |> Enum.reduce([], fn {i, _}, acc ->
         # the number of items at this depth
         num_items = (total_leaves / :math.pow(2, max_depth - i)) |> Float.ceil() |> round
-        acc ++ [List.duplicate(:leave, num_items)]
+        acc ++ [List.duplicate(:none, num_items)]
       end)
-
-    nodes
 
     %MerkleTree{
       total: total_leaves,
@@ -41,18 +37,20 @@ defmodule MerkleTree do
     }
   end
 
+  def up(%MerkleTree{current_depth: 0} = tree), do: tree
+
   def up(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
-      when depth > 0 and index > 0 do
+      when depth > 0 and index >= 0 do
     %MerkleTree{merkle_tree | current_depth: depth - 1, current_index: div(index, 2)}
   end
 
   def left(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
-      when depth > 0 and index > 0 do
+      when depth >= 0 and index >= 0 do
     %MerkleTree{merkle_tree | current_depth: depth + 1, current_index: index * 2}
   end
 
   def right(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
-      when depth > 0 and index > 0 do
+      when depth >= 0 and index >= 0 do
     %MerkleTree{merkle_tree | current_depth: depth + 1, current_index: index * 2 + 1}
   end
 
@@ -66,7 +64,8 @@ defmodule MerkleTree do
         node
       ) do
     new_nodes =
-      nodes |> List.updated_at(current_depth, fn row -> List.replace_at(current_index) end)
+      nodes
+      |> List.update_at(current_depth, fn row -> List.replace_at(row, current_index, node) end)
 
     %MerkleTree{merkle_tree | nodes: new_nodes}
   end
@@ -110,10 +109,100 @@ defmodule MerkleTree do
     nodes |> Enum.at(current_depth + 1) |> length > current_index * 2 + 1
   end
 
-  def populate_tree(%MerkleTree{}, flag_bits, hashes) do
+  @doc """
+  calculate the root, given the appropriate flag bits and hashes
+  """
+  def populate_tree(%MerkleTree{} = tree, flag_bits, hashes) do
+    # We populate until we have the root
+    root = root(tree)
+    #
+    case root do
+      :none ->
+        {updated_tree, updated_flag_bits, updated_hashes} =
+          parse_tree(tree, flag_bits, hashes)
+
+        populate_tree(updated_tree, updated_flag_bits, updated_hashes)
+
+      actual_root when is_binary(actual_root) ->
+        # sanity‐check
+        if flag_bits == [] and hashes == [] do
+          actual_root
+        else
+          raise "didn't consume everything"
+        end
+    end
   end
 
-  def merkle_parent(hash_l, hash_r) do
+  @doc """
+  flag_bits guide where you need to descend vs. skip.
+  hashes provide either leaf values (at the bottom) or pre-computed subtree hashes (where you skip)
+  1 = “there’s something interesting in some leaf below → open this node.”
+
+  0 = “no interesting leaves in here → here’s the one hash that covers it all, skip its children.”
+  """
+  def parse_tree(tree, flag_bits, hashes) do
+    if is_leaf(tree) do
+      # Get the next bit from flag_bits
+      {_, rest_flags} = List.pop_at(flag_bits, 0)
+      # set the current node in the merkle tree to the next hash
+      {last_hash, rest_hashes} = List.pop_at(hashes, 0)
+      tree = set_current_node(tree, last_hash)
+      # go up a level
+      updated_tree = up(tree)
+      {updated_tree, rest_flags, rest_hashes}
+    else
+      # get the left hash
+      left_hash = get_left_node(tree)
+      parse_left_hash(left_hash, tree, flag_bits, hashes)
+    end
+  end
+
+  def parse_left_hash(:none, tree, flag_bits, hashes) do
+    {last_flag, rest_flags} = List.pop_at(flag_bits, 0)
+
+    # if the next flag bit is 0, the next hash is our current node
+    if last_flag == 0 do
+      {last_hash, rest_hashes} = List.pop_at(hashes, 0)
+      # Set the current node to be the last_hash
+      tree = set_current_node(tree, last_hash)
+      # Sub-tree doesnt need calculation, go up
+      updated_tree = up(tree)
+      {updated_tree, rest_flags, rest_hashes}
+    else
+      # go to the left node
+      updated_tree = left(tree)
+      {updated_tree, rest_flags, hashes}
+    end
+  end
+
+  def parse_left_hash(left_hash, tree, flag_bits, hashes) do
+    if right_exists(tree) do
+      right_hash = get_right_node(tree)
+
+      case right_hash do
+        # if we dont have the right hash value
+        :none ->
+          # go to the right node
+          updated_tree = right(tree)
+          {updated_tree, flag_bits, hashes}
+
+        bin_value ->
+          # combine the left and right hashes
+          updated_tree = set_current_node(tree, merkle_parent(left_hash, bin_value))
+          # we've completed this sub-tree, go up
+          updated_tree = up(updated_tree)
+          {updated_tree, flag_bits, hashes}
+      end
+    else
+      # combine the left hash twice
+      updated_tree = set_current_node(tree, merkle_parent(left_hash, left_hash))
+      # we've completed this sub-tree, go up
+      updated_tree = up(updated_tree)
+      {updated_tree, flag_bits, hashes}
+    end
+  end
+
+  def merkle_parent(hash_l, hash_r) when is_binary(hash_l) and is_binary(hash_r) do
     hash_int = CryptoUtils.double_hash256(hash_l <> hash_r)
     ## if we do :binary.encode_unsigned it strips the leading zeros
     <<hash_int::unsigned-big-integer-size(256)>>
@@ -126,7 +215,6 @@ defmodule MerkleTree do
       Enum.reduce(hashes, {nil, []}, fn x, {prev, parents} ->
         if prev != nil do
           parent = merkle_parent(prev, x)
-          Logger.debug("parent byte size #{inspect(byte_size(parent))}")
           {nil, parents ++ [parent]}
         else
           {x, parents}
@@ -138,7 +226,6 @@ defmodule MerkleTree do
 
   def merkle_parent_level(hashes) when is_list(hashes) and rem(length(hashes), 2) != 0 do
     last = List.last(hashes)
-    Logger.debug("last #{inspect(last)}")
     merkle_parent_level(hashes ++ [last])
   end
 

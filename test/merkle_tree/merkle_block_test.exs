@@ -60,7 +60,6 @@ defmodule MerkleBlockTest do
     assert merkle_block.flag_bits == "b55635" |> Base.decode16!(case: :lower)
   end
 
-  @tag :in_progress
   test "bit field to bytes" do
     bit_field = [
       0,

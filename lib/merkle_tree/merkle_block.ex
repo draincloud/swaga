@@ -1,3 +1,4 @@
+require Logger
 # Merkle Block is used for SPV-clients
 defmodule MerkleBlock do
   @enforce_keys [
@@ -40,7 +41,7 @@ defmodule MerkleBlock do
         hashes,
         flag_bits
       ) do
-    %Block{
+    %MerkleBlock{
       version: version,
       prev_block: prev_block,
       merkle_root: merkle_root,
@@ -61,14 +62,80 @@ defmodule MerkleBlock do
       rest::binary>> = serialized_block
 
     txs_count = MathUtils.little_endian_to_int(number_of_txs)
-    {hashes_count, rest} = Tx.read_varint(rest)
-    <<hashes::binart-size(32 * hashes_count), flag_bits::binary>> = rest
+    # We read the number of hashes, and all is left is hashes and flags
+    {hashes_count, _} = Tx.read_varint(number_of_hashes)
+    Logger.debug("hashes_count #{inspect(hashes_count)}")
+    Logger.debug("hashes_flags #{inspect(byte_size(rest))}")
+    <<hashes::binary-size(32 * hashes_count), flag_bytes::binary>> = rest
+
+    {parsed_hashes, _} =
+      Enum.reduce(1..hashes_count, {[], hashes}, fn hash, {acc, bin} ->
+        <<hash::binary-size(32), rest::binary>> = bin
+        {acc ++ [hash |> Helpers.reverse_binary()], rest}
+      end)
+
+    {flags_count, bin_flags} = Tx.read_varint(flag_bytes)
+
+    <<flags::binary-size(flags_count), _::binary>> = bin_flags
+
+    new(
+      MathUtils.little_endian_to_int(version),
+      Helpers.reverse_binary(prev_block),
+      Helpers.reverse_binary(merkle_root),
+      MathUtils.little_endian_to_int(timestamp),
+      bits,
+      nonce,
+      txs_count,
+      number_of_hashes,
+      parsed_hashes,
+      flags
+    )
   end
 
-  def bytes_to_bit_field(bytes) do
+  import Bitwise
+
+  @doc """
+  Given a list of bytes (integers 0..255), returns a flat list of bits
+  (0 or 1) for each byte, least-significant bit first.
+  """
+  def bytes_to_bit_field(bytes) when is_list(bytes) do
     bytes
-    |> Enum.reduce("", fn x, acc ->
-      nil
+    |> Enum.flat_map(&byte_to_bits/1)
+  end
+
+  # Convert a single byte into its 8 bits
+  defp byte_to_bits(byte) when is_integer(byte) and byte in 0..255 do
+    for i <- 0..7 do
+      # Shift right by i, then mask off all but the lowest bit
+      byte >>> i &&& 1
+    end
+  end
+
+  @doc """
+  Given a flat list of bits (0 or 1) whose length is divisible by 8,
+  packs each group of 8 bits (LSB first) into a byte and returns a binary.
+  """
+  def bit_field_to_bytes(bit_field) when rem(length(bit_field), 8) != 0 do
+    raise ArgumentError, "bit_field does not have a length that is divisible by 8"
+  end
+
+  def bit_field_to_bytes(bit_field) do
+    bit_field
+    # 1. Chunk into sublists of 8 bits each
+    |> Enum.chunk_every(8)
+    # 2. For each 8-bit chunk, build a single byte
+    |> Enum.map(&bits_chunk_to_byte/1)
+    # 3. Turn the list of byte-integers into a binary
+    |> :erlang.list_to_binary()
+  end
+
+  # Helper: turn [b0, b1, …, b7] into one integer 0..255
+  defp bits_chunk_to_byte(bits) do
+    bits
+    |> Enum.with_index()
+    |> Enum.reduce(0, fn
+      {1, idx}, acc -> acc ||| 1 <<< idx
+      {_, _}, acc -> acc
     end)
   end
 end

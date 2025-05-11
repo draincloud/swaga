@@ -41,16 +41,17 @@ defmodule MerkleTree do
     }
   end
 
-  def up(%MerkleTree{current_depth: depth, current_index: index}) when depth > 0 and index > 0 do
+  def up(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
+      when depth > 0 and index > 0 do
     %MerkleTree{merkle_tree | current_depth: depth - 1, current_index: div(index, 2)}
   end
 
-  def left(%MerkleTree{current_depth: depth, current_index: index})
+  def left(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
       when depth > 0 and index > 0 do
     %MerkleTree{merkle_tree | current_depth: depth + 1, current_index: index * 2}
   end
 
-  def right(%MerkleTree{current_depth: depth, current_index: index})
+  def right(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
       when depth > 0 and index > 0 do
     %MerkleTree{merkle_tree | current_depth: depth + 1, current_index: index * 2 + 1}
   end
@@ -61,13 +62,13 @@ defmodule MerkleTree do
 
   def set_current_node(
         %MerkleTree{nodes: nodes, current_depth: current_depth, current_index: current_index} =
-          tree,
+          merkle_tree,
         node
       ) do
     new_nodes =
       nodes |> List.updated_at(current_depth, fn row -> List.replace_at(current_index) end)
 
-    %MerkleTree{tree, nodes: new_nodes}
+    %MerkleTree{merkle_tree | nodes: new_nodes}
   end
 
   def get_current_node(%MerkleTree{

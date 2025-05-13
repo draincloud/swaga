@@ -28,7 +28,8 @@ defmodule Swaga.MixProject do
       {:plug, "~> 1.7"},
       {:cowboy, "~> 2.13"},
       {:plug_cowboy, "~> 2.0"},
-      {:connection, "~> 1.1.0"}
+      {:connection, "~> 1.1.0"},
+      {:murmur, "~> 1.0"}
     ]
   end
 end

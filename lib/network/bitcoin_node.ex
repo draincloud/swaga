@@ -42,11 +42,19 @@ defmodule BitcoinNode do
   end
 
   # Sends message, must implement the interface
-  def send(%BitcoinNode{socket: socket, testnet: testnet}, msg, module)
+  def send(%BitcoinNode{socket: socket, testnet: testnet}, msg, module, command \\ nil)
       when is_atom(module) do
     serialized_message = module.serialize(msg)
-    envelope = NetworkEnvelope.new(module.command(), serialized_message, testnet)
-    Logger.debug("Sending #{module.command()}")
+
+    network_command =
+      if command == nil do
+        module.command()
+      else
+        command
+      end
+
+    envelope = NetworkEnvelope.new(network_command, serialized_message, testnet)
+    Logger.debug("Sending #{network_command}")
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
       :ok -> {:ok}
@@ -84,14 +92,14 @@ defmodule BitcoinNode do
     end
   end
 
-  # 2 args, to start recursive_process
-  def read_while(node, parsed_envelopes, required_command, prev_bin \\ "") do
+  # Maybe remove parsed_envelopes now
+  def wait_for(node, parsed_envelopes, required_command, prev_bin \\ "") do
     {network, _remaining} = read(node, prev_bin)
     parsed = parsed_envelopes ++ [network]
 
     case Enum.find(parsed, fn env -> env.command == required_command end) do
       nil ->
-        read_while(node, parsed, required_command, prev_bin)
+        wait_for(node, parsed, required_command, prev_bin)
 
       envelope ->
         envelope

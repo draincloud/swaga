@@ -28,6 +28,8 @@ defmodule MerkleBlock do
     :flag_bits
   ]
 
+  def command, do: "merkleblock"
+
   def new(
         version,
         prev_block,

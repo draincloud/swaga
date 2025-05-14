@@ -1,4 +1,14 @@
 defmodule Helpers do
+  def pad_binary(bin, size) when is_binary(bin) do
+    padding = size - byte_size(bin)
+
+    if padding > 0 do
+      <<0::size(padding * 8), bin::binary>>
+    else
+      bin
+    end
+  end
+
   def reverse_binary(bin) when is_binary(bin) do
     bin |> :binary.bin_to_list() |> Enum.reverse() |> :erlang.list_to_binary()
   end

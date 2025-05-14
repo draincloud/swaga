@@ -1,4 +1,5 @@
 defmodule Base58 do
+  require IEx
   @base58_alphabet "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
   def div_mod(a, b) do
@@ -55,7 +56,13 @@ defmodule Base58 do
       end)
 
     combined = :binary.encode_unsigned(num, :big)
-    <<payload::binary-size(byte_size(combined) - 4), checksum::binary-size(4)>> = combined
+
+    # Ensure that the length is 25
+    padded_combined =
+      :binary.copy(<<0>>, 25 - byte_size(combined)) <> combined
+
+    <<payload::binary-size(byte_size(padded_combined) - 4), checksum::binary-size(4)>> =
+      padded_combined
 
     <<first_4_bytes::binary-size(4), _::binary>> =
       CryptoUtils.double_hash256(payload) |> :binary.encode_unsigned(:big)
@@ -65,7 +72,7 @@ defmodule Base58 do
     else
       # First byte is the network prefix, the middle 20 are actual address
       <<_first_byte::binary-size(1), result::binary-size(20), _checksum::binary-size(4)>> =
-        combined
+        padded_combined
 
       Base.encode16(result, case: :lower)
     end

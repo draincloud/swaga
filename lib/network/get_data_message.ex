@@ -1,3 +1,5 @@
+require Logger
+
 defmodule GetDataMessage do
   defstruct [:data]
 
@@ -29,10 +31,16 @@ defmodule GetDataMessage do
   def serialize(%GetDataMessage{data: data}) do
     number_of_items = Tx.encode_varint(length(data))
 
-    Enum.reduce(data, number_of_items, fn {data_type, identifier}, acc ->
-      acc <>
-        MathUtils.int_to_little_endian(data_type, 4) <>
-        Helpers.reverse_binary(identifier)
-    end)
+    result =
+      Enum.reduce(data, number_of_items, fn {data_type, identifier}, acc ->
+        acc <>
+          MathUtils.int_to_little_endian(data_type, 4) <>
+          Helpers.reverse_binary(identifier)
+      end)
+
+    #    Logger.debug("Result 39 #{inspect(acc |> Base.encode16(case: :lower))}")
+    #    Logger.debug("Result 39 #{inspect(result |> byte_size)}")
+
+    result
   end
 end

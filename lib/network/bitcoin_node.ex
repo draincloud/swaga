@@ -54,7 +54,7 @@ defmodule BitcoinNode do
       end
 
     envelope = NetworkEnvelope.new(network_command, serialized_message, testnet)
-    Logger.debug("Sending #{network_command}")
+    Logger.debug("Sending #{inspect(envelope)}")
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
       :ok -> {:ok}
@@ -66,14 +66,15 @@ defmodule BitcoinNode do
         %BitcoinNode{socket: socket, testnet: _testnet} = node,
         prev_bin \\ "",
         do_parse \\ true,
-        bytes \\ 0
+        bytes \\ 0,
+        timeout \\ 10000
       ) do
-    case Socket.recv(socket, bytes) do
+    case Socket.recv(socket, bytes, timeout) do
       {:error, error} ->
         raise "Error reading from socket, #{inspect(error)}"
 
       {:ok, data} ->
-        Logger.debug("Data from socket #{inspect(prev_bin <> data)}")
+        #        Logger.debug("Data from socket #{inspect(:binary.bin_to_list(data))}")
 
         if do_parse do
           case NetworkEnvelope.parse(prev_bin <> data) do
@@ -83,7 +84,7 @@ defmodule BitcoinNode do
 
             # If it's correctly parsed, then we return it
             network ->
-              Logger.debug("Parsed data #{inspect(NetworkEnvelope.parse(prev_bin <> data))}")
+              Logger.debug("Parsed data #{inspect(network)}")
               network
           end
         else
@@ -93,15 +94,16 @@ defmodule BitcoinNode do
   end
 
   # Maybe remove parsed_envelopes now
-  def wait_for(node, parsed_envelopes, required_command, prev_bin \\ "") do
-    {network, _remaining} = read(node, prev_bin)
+  def wait_for(node, parsed_envelopes, required_command, prev_bin \\ "", timeout \\ 10000) do
+    {network, rest_bin} = read(node, prev_bin, true, 0, timeout)
     parsed = parsed_envelopes ++ [network]
 
     case Enum.find(parsed, fn env -> env.command == required_command end) do
       nil ->
-        wait_for(node, parsed, required_command, prev_bin)
+        wait_for(node, parsed, required_command, rest_bin, timeout)
 
       envelope ->
+        Logger.debug("Parsed envelopes #{inspect(parsed_envelopes)}")
         envelope
     end
   end

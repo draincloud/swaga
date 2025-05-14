@@ -11,7 +11,17 @@ defmodule Socket do
   def send(conn, data), do: Connection.call(conn, {:send, data})
 
   def recv(conn, bytes \\ 0, timeout \\ 10000) do
-    Connection.call(conn, {:recv, bytes, timeout})
+    try do
+      Connection.call(conn, {:recv, bytes, timeout})
+    catch
+      :exit, {:timeout, _} ->
+        Logger.error("Call timed out")
+        {:error, :timeout}
+
+      :exit, reason ->
+        Logger.error("GenServer call failed: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   def close(conn), do: Connection.call(conn, :close)

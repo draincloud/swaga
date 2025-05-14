@@ -1,6 +1,7 @@
 require Logger
 
 defmodule GetDataMessageTest do
+  require IEx
   use ExUnit.Case
 
   test "test serialize" do
@@ -34,8 +35,7 @@ defmodule GetDataMessageTest do
       "00000000000538d5c2246336644f9a4956551afb44ba47278759ec55ea912e19"
       |> Base.decode16!(case: :lower)
 
-    # FIX base 58 decode
-    address = "12CnxFWVZq59tbsgoSn6TJWArWLoiJDRNk"
+    address = "12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"
     h160 = Base58.decode(address)
     node = BitcoinNode.new(~c"ns343680.ip-94-23-21.eu", 8333)
     bloom_filter = BloomFilter.new(30, 5, 90210)
@@ -51,17 +51,15 @@ defmodule GetDataMessageTest do
     headers = BitcoinNode.wait_for(node, [], HeadersMessage.command())
     getdata = GetDataMessage.new()
     %{blocks: blocks} = HeadersMessage.parse(headers.payload)
-    Logger.debug("blocks #{inspect(blocks)}")
 
     data_message =
       Enum.reduce(blocks, getdata, fn block, acc ->
         true = Block.check_pow(block)
-        Logger.debug("hash #{inspect(Block.hash(block) |> Base.encode16(case: :lower))}")
         GetDataMessage.add_data(acc, GetDataMessage.filtered_block_data_type(), Block.hash(block))
       end)
 
-    Logger.debug("data_message #{inspect(data_message)}")
     {:ok} = BitcoinNode.send(node, data_message, GetDataMessage)
-    headers = BitcoinNode.wait_for(node, [], MerkleBlock.command())
+    merkle = BitcoinNode.wait_for(node, [], Tx.command())
+    #    Logger.debug("data_message #{inspect(merkle)}")
   end
 end

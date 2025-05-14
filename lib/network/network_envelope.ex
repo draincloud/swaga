@@ -1,5 +1,3 @@
-require Logger
-
 defmodule NetworkEnvelope do
   @enforce_keys [
     :command,
@@ -89,7 +87,7 @@ defmodule NetworkEnvelope do
           :ok
 
         :error ->
-          raise "Magic is not right for expected #{inspect(expected_magic)}, got #{inspect(network_magic)}"
+          raise "Magic is not right for expected #{inspect(expected_magic)}, got #{inspect(network_magic)}}"
       end
 
     payload_size = payload_length |> MathUtils.little_endian_to_int()
@@ -100,7 +98,9 @@ defmodule NetworkEnvelope do
           payload
 
         <<first4bytes::binary-size(4), _::binary>> =
-          CryptoUtils.double_hash256(payload_to_read) |> :binary.encode_unsigned(:big)
+          CryptoUtils.double_hash256(payload_to_read)
+          |> :binary.encode_unsigned(:big)
+          |> Helpers.pad_binary(32)
 
         :ok =
           case check_hash_sum(payload_checksum, first4bytes) do
@@ -108,7 +108,7 @@ defmodule NetworkEnvelope do
               :ok
 
             :error ->
-              raise "Checksum is not equal to first 4 bytes of hash"
+              raise "Checksum is not equal to first 4 bytes of hash, expected(#{inspect(payload_checksum)}), received #{inspect(first4bytes)}"
           end
 
         {%NetworkEnvelope{

@@ -6,6 +6,7 @@ https://digilib.stekom.ac.id/assets/dokumen/ebook/feb_d82be9cf1cb52e2b294a822753
 - `mix compile`
 - `iex -S mix test --breakpoints --failed`
 - `iex -S mix`
+- `iex -S mix test --trace test/bloom_filter/bloom_filter_test.exs`
 
 ## Installation
 

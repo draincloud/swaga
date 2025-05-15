@@ -1,6 +1,7 @@
 require Logger
 
 defmodule GetHeadersMessage do
+  require IEx
   @enforce_keys [:version, :num_hashes, :start_block, :end_block]
   defstruct [:version, :num_hashes, :start_block, :end_block]
   def command(), do: "getheaders"
@@ -31,9 +32,10 @@ defmodule GetHeadersMessage do
       }) do
     header_version = MathUtils.int_to_little_endian(version, 4)
     header_num_hashes = Tx.encode_varint(num_hashes)
-    start_block = Helpers.reverse_binary(start_block)
-    end_block = Helpers.reverse_binary(end_block)
+    start_block = Helpers.reverse_binary(start_block) |> Helpers.pad_binary(32)
+    end_block = Helpers.reverse_binary(end_block) |> Helpers.pad_binary(32)
     header_version <> header_num_hashes <> start_block <> end_block
+    #    IEx.pry()
   end
 
   def parse(serialized) when is_binary(serialized) do

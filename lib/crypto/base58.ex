@@ -65,7 +65,9 @@ defmodule Base58 do
       padded_combined
 
     <<first_4_bytes::binary-size(4), _::binary>> =
-      CryptoUtils.double_hash256(payload) |> :binary.encode_unsigned(:big)
+      CryptoUtils.double_hash256(payload)
+      |> :binary.encode_unsigned(:big)
+      |> Helpers.pad_binary(byte_size(payload))
 
     if first_4_bytes != checksum do
       raise "bad address, checksum is incorrect"

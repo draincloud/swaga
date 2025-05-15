@@ -3,10 +3,10 @@ require Logger
 defmodule GetDataMessage do
   defstruct [:data]
 
-  @tx_data_type 1
-  @block_data_type 2
-  @filtered_block_data_type 3
-  @compact_block_data_type 4
+  @tx_data_type 0x01
+  @block_data_type 0x02
+  @filtered_block_data_type 0x03
+  @compact_block_data_type 0x04
 
   def tx_data_type, do: @tx_data_type
   def block_data_type, do: @block_data_type

@@ -1,4 +1,6 @@
 defmodule NetworkEnvelope do
+  require IEx
+
   @enforce_keys [
     :command,
     :payload,

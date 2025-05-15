@@ -1,6 +1,8 @@
 require Logger
 
 defmodule BitcoinNode do
+  require IEx
+
   @enforce_keys [
     :host,
     :port,
@@ -42,7 +44,7 @@ defmodule BitcoinNode do
   end
 
   # Sends message, must implement the interface
-  def send(%BitcoinNode{socket: socket, testnet: testnet}, msg, module, command \\ nil)
+  def send(%BitcoinNode{socket: socket, testnet: false}, msg, module, command \\ nil)
       when is_atom(module) do
     serialized_message = module.serialize(msg)
 
@@ -53,8 +55,13 @@ defmodule BitcoinNode do
         command
       end
 
-    envelope = NetworkEnvelope.new(network_command, serialized_message, testnet)
+    #    IEx.pry()
+
+    envelope = NetworkEnvelope.new(network_command, serialized_message)
+    #    IEx.pry()
     Logger.debug("Sending #{inspect(envelope)}")
+
+    Logger.debug("Sending #{inspect(NetworkEnvelope.serialize(envelope) |> Base.encode16())}")
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
       :ok -> {:ok}
@@ -103,8 +110,15 @@ defmodule BitcoinNode do
         wait_for(node, parsed, required_command, rest_bin, timeout)
 
       envelope ->
-        Logger.debug("Parsed envelopes #{inspect(parsed_envelopes)}")
-        envelope
+        Logger.debug("Parsed envelopes #{inspect(parsed)}")
+        Logger.debug("rest_bin #{inspect(rest_bin)}")
+
+        if rest_bin != <<>> do
+          rest_parsed = NetworkEnvelope.parse(rest_bin)
+          Logger.debug("Parsed from rest_bin #{inspect(rest_parsed)}")
+        else
+          envelope
+        end
     end
   end
 
@@ -113,11 +127,9 @@ defmodule BitcoinNode do
   def handshake(%BitcoinNode{} = node) do
     {:ok} = send(node, VersionMessage.new(), VersionMessage)
     # So we're reading version and verack message from the node
-    {%NetworkEnvelope{command: "version"}, rest_bin} = read(node)
+    #    command = wait_for(node, [], VersionMessage.command())
     # match with verack command, payload must be empty and rest_bin as well
-    {%NetworkEnvelope{command: "verack", payload: ""}, ""} =
-      NetworkEnvelope.parse(rest_bin)
-
+    command = wait_for(node, [], VersionMessage.command())
     {:ok} = send(node, VerAckMessage.new(), VerAckMessage)
     :ok
   end

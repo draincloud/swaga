@@ -31,22 +31,28 @@ defmodule GetDataMessageTest do
 
   @tag :in_progress
   test "send getdata message" do
-    last_block_hex =
-      "00000000000538d5c2246336644f9a4956551afb44ba47278759ec55ea912e19"
+    # 895752
+    last_block =
+      "00000000000000000001f1621527881a88c844988e22a8c1e913f48e733e3018"
       |> Base.decode16!(case: :lower)
 
-    address = "12c6DSiU4Rq3P4ZxziKxzrL5LmMBrzjrJX"
+    # 895759
+    start_block =
+      "00000000000000000000646bf8e642b975087e4520b54544b83c316a7af1ce67"
+      |> Base.decode16!(case: :lower)
+
+    address = "1NyLs3xAfq913ugwaZpZ8ygVZoXDSJ7JrN"
     h160 = Base58.decode(address)
     node = BitcoinNode.new(~c"ns343680.ip-94-23-21.eu", 8333)
-    bloom_filter = BloomFilter.new(30, 5, 90210)
-    bloom_filter = BloomFilter.add(bloom_filter, h160)
+    bf = BloomFilter.new(30, 5, 90210)
+    bloom_filter = BloomFilter.add(bf, h160)
+
     :ok = BitcoinNode.handshake(node)
 
     {:ok} =
       BitcoinNode.send(node, BloomFilter.filterload(bloom_filter), GenericMessage, "filterload")
 
-    start_block = last_block_hex
-    get_headers = GetHeadersMessage.new(start_block)
+    get_headers = GetHeadersMessage.new(70015, 1, start_block, last_block)
     {:ok} = BitcoinNode.send(node, get_headers, GetHeadersMessage)
     headers = BitcoinNode.wait_for(node, [], HeadersMessage.command())
     getdata = GetDataMessage.new()

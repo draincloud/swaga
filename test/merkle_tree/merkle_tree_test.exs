@@ -55,7 +55,6 @@ defmodule MerkleTreeTest do
     assert length(Enum.at(tree.nodes, 4)) == 9
   end
 
-  @tag :in_progress
   test "populate the tree" do
     hex_hashes =
       [

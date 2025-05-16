@@ -15,7 +15,7 @@ defmodule HeadersMessageTest do
     {:ok} = BitcoinNode.send(node, get_headers, GetHeadersMessage)
 
     %HeadersMessage{blocks: blocks} =
-      BitcoinNode.read_while(node, [], "headers").payload |> HeadersMessage.parse()
+      BitcoinNode.wait_for(node, [], "headers").payload |> HeadersMessage.parse()
 
     Enum.each(blocks, fn b ->
       true = Block.check_pow(b)

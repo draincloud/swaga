@@ -32,6 +32,8 @@ defmodule Tx do
     }
   end
 
+  def command, do: "tx"
+
   def read_varint(<<0xFD, rest::binary>>) do
     <<two_bytes::binary-size(2), rest2::binary>> = rest
     {MathUtils.little_endian_to_int(two_bytes), rest2}

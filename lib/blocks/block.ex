@@ -99,10 +99,15 @@ defmodule Block do
   end
 
   def hash(%Block{} = block) do
-    serialize(block)
-    |> CryptoUtils.double_hash256()
-    |> :binary.encode_unsigned()
-    |> Helpers.reverse_binary()
+    hash =
+      serialize(block)
+      |> CryptoUtils.double_hash256()
+      |> :binary.encode_unsigned()
+      |> Helpers.pad_binary(32)
+      |> Helpers.reverse_binary()
+
+    32 = byte_size(hash)
+    hash
   end
 
   def bip9(%Block{version: version}) do

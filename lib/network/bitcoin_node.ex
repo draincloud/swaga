@@ -1,6 +1,8 @@
 require Logger
 
 defmodule BitcoinNode do
+  require IEx
+
   @enforce_keys [
     :host,
     :port,
@@ -42,11 +44,24 @@ defmodule BitcoinNode do
   end
 
   # Sends message, must implement the interface
-  def send(%BitcoinNode{socket: socket, testnet: testnet}, msg, module)
+  def send(%BitcoinNode{socket: socket, testnet: false}, msg, module, command \\ nil)
       when is_atom(module) do
     serialized_message = module.serialize(msg)
-    envelope = NetworkEnvelope.new(module.command(), serialized_message, testnet)
-    Logger.debug("Sending #{module.command()}")
+
+    network_command =
+      if command == nil do
+        module.command()
+      else
+        command
+      end
+
+    #    IEx.pry()
+
+    envelope = NetworkEnvelope.new(network_command, serialized_message)
+    #    IEx.pry()
+    Logger.debug("Sending #{inspect(envelope)}")
+
+    Logger.debug("Sending #{inspect(NetworkEnvelope.serialize(envelope) |> Base.encode16())}")
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
       :ok -> {:ok}
@@ -58,14 +73,15 @@ defmodule BitcoinNode do
         %BitcoinNode{socket: socket, testnet: _testnet} = node,
         prev_bin \\ "",
         do_parse \\ true,
-        bytes \\ 0
+        bytes \\ 0,
+        timeout \\ 10000
       ) do
-    case Socket.recv(socket, bytes) do
+    case Socket.recv(socket, bytes, timeout) do
       {:error, error} ->
         raise "Error reading from socket, #{inspect(error)}"
 
       {:ok, data} ->
-        Logger.debug("Data from socket #{inspect(prev_bin <> data)}")
+        #        Logger.debug("Data from socket #{inspect(:binary.bin_to_list(data))}")
 
         if do_parse do
           case NetworkEnvelope.parse(prev_bin <> data) do
@@ -75,7 +91,7 @@ defmodule BitcoinNode do
 
             # If it's correctly parsed, then we return it
             network ->
-              Logger.debug("Parsed data #{inspect(NetworkEnvelope.parse(prev_bin <> data))}")
+              Logger.debug("Parsed data #{inspect(network)}")
               network
           end
         else
@@ -84,17 +100,25 @@ defmodule BitcoinNode do
     end
   end
 
-  # 2 args, to start recursive_process
-  def read_while(node, parsed_envelopes, required_command, prev_bin \\ "") do
-    {network, _remaining} = read(node, prev_bin)
+  # Maybe remove parsed_envelopes now
+  def wait_for(node, parsed_envelopes, required_command, prev_bin \\ "", timeout \\ 10000) do
+    {network, rest_bin} = read(node, prev_bin, true, 0, timeout)
     parsed = parsed_envelopes ++ [network]
 
     case Enum.find(parsed, fn env -> env.command == required_command end) do
       nil ->
-        read_while(node, parsed, required_command, prev_bin)
+        wait_for(node, parsed, required_command, rest_bin, timeout)
 
       envelope ->
-        envelope
+        Logger.debug("Parsed envelopes #{inspect(parsed)}")
+        Logger.debug("rest_bin #{inspect(rest_bin)}")
+
+        if rest_bin != <<>> do
+          rest_parsed = NetworkEnvelope.parse(rest_bin)
+          Logger.debug("Parsed from rest_bin #{inspect(rest_parsed)}")
+        else
+          envelope
+        end
     end
   end
 
@@ -103,11 +127,9 @@ defmodule BitcoinNode do
   def handshake(%BitcoinNode{} = node) do
     {:ok} = send(node, VersionMessage.new(), VersionMessage)
     # So we're reading version and verack message from the node
-    {%NetworkEnvelope{command: "version"}, rest_bin} = read(node)
+    #    command = wait_for(node, [], VersionMessage.command())
     # match with verack command, payload must be empty and rest_bin as well
-    {%NetworkEnvelope{command: "verack", payload: ""}, ""} =
-      NetworkEnvelope.parse(rest_bin)
-
+    command = wait_for(node, [], VersionMessage.command())
     {:ok} = send(node, VerAckMessage.new(), VerAckMessage)
     :ok
   end

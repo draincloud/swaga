@@ -29,8 +29,7 @@ defmodule GetDataMessageTest do
     assert hex_msg == updated_message |> GetDataMessage.serialize() |> Base.encode16(case: :lower)
   end
 
-  @tag :in_progress
-  test "send getdata message" do
+  test "send getdata message mainnet" do
     # 895752
     last_block =
       "00000000000000000001f1621527881a88c844988e22a8c1e913f48e733e3018"
@@ -65,7 +64,7 @@ defmodule GetDataMessageTest do
       end)
 
     {:ok} = BitcoinNode.send(node, data_message, GetDataMessage)
-    merkle = BitcoinNode.wait_for(node, [], Tx.command())
+    _merkle = BitcoinNode.wait_for(node, [], MerkleBlock.command())
     #    Logger.debug("data_message #{inspect(merkle)}")
   end
 end

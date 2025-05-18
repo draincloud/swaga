@@ -211,4 +211,15 @@ defmodule TxTest do
     assert false == Tx.is_coinbase(tx)
     assert nil == Tx.coinbase_height(tx)
   end
+
+  @tag :in_progress
+  test "p2wpkh" do
+    tx =
+      TxFetcher.fetch(
+        "d869f854e1f8788bcff294cc83b280942a8c728de71eb709a2c29d10bfe21b7c",
+        true
+      )
+
+    true = Tx.verify(tx)
+  end
 end

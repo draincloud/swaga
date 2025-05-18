@@ -5,7 +5,11 @@ defmodule Tx do
 
   @enforce_keys [
     :version,
-    :tx_ins
+    :tx_ins,
+    :tx_outs,
+    :locktime,
+    :testnet,
+    :segwit
   ]
 
   defstruct [
@@ -13,7 +17,11 @@ defmodule Tx do
     :tx_ins,
     :tx_outs,
     :locktime,
-    :testnet
+    :testnet,
+    :segwit,
+    :hash_prevouts,
+    :hash_sequence,
+    :hash_outputs
   ]
 
   def new(
@@ -21,14 +29,16 @@ defmodule Tx do
         tx_ins,
         tx_outs,
         locktime,
-        testnet
+        testnet \\ false,
+        segwit \\ false
       ) do
     %Tx{
       version: version,
       tx_ins: tx_ins,
       tx_outs: tx_outs,
       locktime: locktime,
-      testnet: testnet
+      testnet: testnet,
+      segwit: segwit
     }
   end
 
@@ -73,7 +83,68 @@ defmodule Tx do
     raise "Integer too large"
   end
 
-  def parse(serialized_tx, testnet \\ false) when is_binary(serialized_tx) do
+  def check_marker(<<0x00, 0x01>>) do
+    :ok
+  end
+
+  def check_marker(_incorrect_marker) do
+    :error
+  end
+
+  def parse(serialized_tx, testnet \\ false)
+
+  # Segwit parse
+  def parse(<<_::binary-size(4), 0x00, _::binary>> = serialized_tx, testnet) do
+    <<version::binary-size(4), rest::binary>> = serialized_tx
+    version = version |> MathUtils.little_endian_to_int()
+    <<marker::binary-size(2), rest::binary>> = rest
+    :ok = check_marker(marker)
+    {num_inputs, rest} = read_varint(rest)
+
+    {inputs, rest} =
+      Enum.reduce(1..num_inputs, {[], rest}, fn _, {acc, bin} ->
+        {new_bin, input} = TxIn.parse(bin)
+        {[input | acc], new_bin}
+      end)
+
+    {num_outputs, rest} = read_varint(rest)
+
+    {outputs, rest} =
+      Enum.reduce(1..num_outputs, {[], rest}, fn _, {acc, bin} ->
+        {new_bin, output} = TxOut.parse(bin)
+        {[output | acc], new_bin}
+      end)
+
+    {updated_inputs, rest_bin} =
+      Enum.reduce(inputs, {[], rest}, fn input, {inputs, rest} ->
+        {num_items, rest_bin} = read_varint(rest)
+
+        {items, rest_bin} =
+          Enum.reduce(1..num_items, {[], rest_bin}, fn _, {items, bin} ->
+            {item_len, item_rest_bin} = read_varint(bin)
+
+            case item_len do
+              0 ->
+                {items ++ [0], item_rest_bin}
+
+              true ->
+                <<item::binary-size(item_len), rest_bin::binary>> = item_rest_bin
+                {items ++ [item], rest_bin}
+            end
+          end)
+
+        updated_input = %{input | witness: items}
+        {inputs ++ [updated_input], rest_bin}
+      end)
+
+    <<four_bytes::binary-size(4), _::binary>> = rest_bin
+    locktime = MathUtils.little_endian_to_int(four_bytes)
+
+    new(version, updated_inputs, outputs, locktime, testnet, true)
+  end
+
+  # Legacy parse
+  def parse(serialized_tx, testnet) when is_binary(serialized_tx) do
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
     {num_inputs, tx_rest} = read_varint(rest)
 
@@ -94,13 +165,13 @@ defmodule Tx do
     <<raw_locktime::binary-size(4), _::binary>> = final_rest
     locktime = MathUtils.little_endian_to_int(raw_locktime)
 
-    %Tx{
-      version: MathUtils.little_endian_to_int(version_bin),
-      tx_ins: inputs,
-      tx_outs: Enum.reverse(outputs),
-      locktime: locktime,
-      testnet: testnet
-    }
+    new(
+      MathUtils.little_endian_to_int(version_bin),
+      inputs,
+      Enum.reverse(outputs),
+      locktime,
+      testnet
+    )
   end
 
   def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do

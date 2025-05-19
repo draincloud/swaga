@@ -9,7 +9,7 @@ defmodule Bip32Test do
     @seed |> Base.decode16!(case: :lower)
 
     %{chain_code: chain_code, secret: secret, depth: 0, child_number: 0} =
-      Xpriv.new_master(seed)
+      Xpriv.new_master(@seed)
 
     assert chain_code |> Base.encode16(case: :lower) ==
              "873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508"

@@ -1,4 +1,4 @@
-defmodule HDWallet do
+defmodule Bip32 do
   @doc """
   BIP32 implementation.
   Implementation of BIP32 hierarchical deterministic wallets, as defined

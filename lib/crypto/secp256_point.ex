@@ -133,4 +133,14 @@ defmodule Secp256Point do
 
     Base58.encode_base58_checksum(prefix <> h160)
   end
+
+  def from_secret_key(secret_key) when is_integer(secret_key) do
+    g = get_g()
+    mul(g, secret_key)
+  end
+
+  def from_secret_key(%PrivateKey{secret: secret}) do
+    g = get_g()
+    mul(g, secret)
+  end
 end

@@ -1,4 +1,4 @@
-defmodule Xpub do
+defmodule BIP32.Xpub do
   @enforce_keys [
     :chain_code,
     :depth,
@@ -18,7 +18,7 @@ defmodule Xpub do
     :public_key
   ]
 
-  def from_xpriv(%Xpriv{
+  def from_xpriv(%BIP32.Xpriv{
         depth: depth,
         parent_fingerprint: parent_fingerprint,
         child_number: child_number,

@@ -29,7 +29,8 @@ defmodule Swaga.MixProject do
       {:cowboy, "~> 2.13"},
       {:plug_cowboy, "~> 2.0"},
       {:connection, "~> 1.1.0"},
-      {:murmur, "~> 1.0"}
+      {:murmur, "~> 1.0"},
+      {:pbkdf2_elixir, "~> 2.3.1"}
     ]
   end
 end

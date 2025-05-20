@@ -1,4 +1,4 @@
-defmodule Xpriv do
+defmodule BIP32.Xpriv do
   @enforce_keys [:secret, :point, :chain_code]
   defstruct [
     :secret,

@@ -2,6 +2,7 @@ require Logger
 
 defmodule Base58Test do
   use ExUnit.Case
+  require IEx
 
   test "base58" do
     to_encode = "7C076FF316692A3D7EB3C3BB0F8B1488CF72E1AFCD929E29307032997A838A3D"
@@ -31,5 +32,12 @@ defmodule Base58Test do
   test "p2sh addresses" do
     h160 = Base.decode16!("74d691da1574e6b3c192ecfb52cc8984ee7b6c56", case: :lower)
     assert "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh" == Base58.encode_base58_checksum(<<0x05>> <> h160)
+  end
+
+  @tag :in_progress
+  test "xprv encode version" do
+    want = "7irrX"
+    input = "0488ADE4" |> Base.decode16!(case: :upper)
+    assert want == input |> Base58.encode_from_binary()
   end
 end

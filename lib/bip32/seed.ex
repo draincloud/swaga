@@ -1,7 +1,8 @@
 defmodule BIP32.Seed do
   require IEx
+  def from_mnemonic(mnemonic, passphrase \\ "")
 
-  def from_mnemonic(mnemonic, passphrase \\ "") when is_list(mnemonic) do
+  def from_mnemonic(mnemonic, passphrase) when is_list(mnemonic) do
     with :ok <- check_mnemonic(mnemonic),
          :ok <- entropy_extraction(mnemonic) do
       generate_seed(mnemonic, passphrase)

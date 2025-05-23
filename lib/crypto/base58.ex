@@ -13,7 +13,9 @@ defmodule Base58 do
     end
   end
 
-  def encode_num(num, acc \\ []) when num > 0 do
+  def encode_num(num, acc \\ [])
+
+  def encode_num(num, acc) when num > 0 do
     {num, mod} = div_mod(num, 58)
 
     encode_num(num, [String.at(@base58_alphabet, mod) | acc])

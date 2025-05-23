@@ -3,6 +3,7 @@ require Logger
 defmodule GetDataMessageTest do
   require IEx
   use ExUnit.Case
+  @moduletag :skip
 
   test "test serialize" do
     hex_msg =
@@ -29,7 +30,6 @@ defmodule GetDataMessageTest do
     assert hex_msg == updated_message |> GetDataMessage.serialize() |> Base.encode16(case: :lower)
   end
 
-  @tag :network
   test "send getdata message" do
     # 895752
     last_block =

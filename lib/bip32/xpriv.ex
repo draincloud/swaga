@@ -53,7 +53,7 @@ defmodule BIP32.Xpriv do
        when is_binary(secret) do
     # For mainnet
     version_bytes = 0x0488ADE4 |> :binary.encode_unsigned(:big)
-    depth = depth |> :binary.encode_unsigned(:big)
+    depth = <<depth>>
 
     parent_fingerprint =
       parent_fingerprint |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
@@ -64,7 +64,6 @@ defmodule BIP32.Xpriv do
     # Check for byte_sizes
     4 = byte_size(version_bytes)
     1 = byte_size(depth)
-    IEx.pry()
     4 = byte_size(parent_fingerprint)
     4 = byte_size(child_number)
     # those are binary values
@@ -77,7 +76,9 @@ defmodule BIP32.Xpriv do
     <<checksum::binary-size(4), _::binary>> =
       concat_bin |> CryptoUtils.hash256() |> CryptoUtils.hash256()
 
-    (checksum <> concat_bin) |> Base58.encode_from_binary()
+    IEx.pry()
+
+    (concat_bin <> checksum) |> Base58.encode_from_binary()
   end
 
   #  def to_xpub(xpriv) do

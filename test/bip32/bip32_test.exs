@@ -9,8 +9,8 @@ defmodule Bip32Test do
   test "correct creation of master key" do
     seed = @seed |> Base.decode16!(case: :lower)
 
-    %{chain_code: chain_code, secret: secret, depth: 0, child_number: 0, master_pubkey: pubkey} =
-      BIP32.Xpriv.new_master(seed)
+    %{chain_code: chain_code, encoded_xprv: secret, depth: 0, child_number: 0, xpub: pubkey} =
+      BIP32.Xprv.new_master(seed)
 
     assert secret ==
              "xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi"
@@ -23,8 +23,8 @@ defmodule Bip32Test do
   test "Chain m/0H" do
     seed = @seed |> Base.decode16!(case: :lower)
 
-    master_xprv = BIP32.Xpriv.new_master(seed)
+    master_xprv = BIP32.Xprv.new_master(seed)
 
-    123 = BIP32.Xpriv.derive(master_xprv, "m/0H")
+    123 = BIP32.Xprv.derive(master_xprv, "m/0H").secret
   end
 end

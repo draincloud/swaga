@@ -2,7 +2,10 @@ defmodule BIP32.Xpriv do
   require IEx
   @enforce_keys [:secret, :master_pubkey, :chain_code]
   defstruct [
+    # Encoded format (xprv)
     :secret,
+    # raw_binary
+    :raw_secret,
     :master_pubkey,
     :chain_code,
     # depth in HD tree (0 for master)
@@ -20,8 +23,6 @@ defmodule BIP32.Xpriv do
     <<il::binary-size(32), ir::binary-size(32)>> = hmac
     # compute the corresponding public key point
     priv_key = :binary.decode_unsigned(il)
-    g = Secp256Point.get_g()
-    pubkey_point = Secp256Point.mul(g, priv_key)
 
     encoded_xpriv =
       raw_xpriv_to_bip32_format(%{
@@ -34,9 +35,10 @@ defmodule BIP32.Xpriv do
       })
 
     %__MODULE__{
+      raw_secret: priv_key,
       secret: encoded_xpriv,
       chain_code: ir,
-      master_pubkey: pubkey_point,
+      master_pubkey: BIP32.Xpub.from_xpriv(priv_key, ir),
       depth: 0,
       child_number: 0,
       parent_fingerprint: 0x00000000
@@ -81,21 +83,56 @@ defmodule BIP32.Xpriv do
     (concat_bin <> checksum) |> Base58.encode_from_binary()
   end
 
-  #  def to_xpub(xpriv) do
-  #    Xpub.from_priv(xpriv)
-  #  end
-
   @doc """
   Derives an extended private key from a path
   """
-  def derive_xpriv(xpriv, child_numbers) do
-    Enum.reduce(child_numbers, xpriv, fn child, sk ->
-      ckd_priv(sk, child)
+  def derive(xpriv, path) when is_binary(path) do
+    indices = BIP32.DerivationPath.parse(path)
+
+    Enum.reduce(indices, xpriv, fn i, derived_xpriv ->
+      ckd_priv(derived_xpriv, i)
     end)
   end
 
+  #  def derive_xpriv(%{chain_code: chain_code, secret: secret} = xpriv, depth, index) do
+  #    priv = ckd_priv(xpriv, index)
+  #
+  #    #    data =
+  #    #      <<0x00>> <> chain_code <> secret <> <<index + 0x80000000::unsigned-big-integer-size(32)>>
+  #    #
+  #    #    hmac = :crypto.mac(:hmac, :sha512, xpriv.chain_code, data)
+  #    #    <<il::binary-size(32), ir::binary-size(32)>> = hmac
+  #    #    priv_key = :binary.decode_unsigned(il)
+  #    #    secret_int = :binary.decode_unsigned(xpriv.secret)
+  #    #    n = Secp256Point.n()
+  #    #
+  #    #    # k_child = (IL + k_parent) % n - Child pk derivation formula
+  #    #    new_secret_int = rem(priv_key + secret_int, n)
+  #
+  #    #    encoded_xpriv =
+  #    #      raw_xpriv_to_bip32_format(%{
+  #    #        secret: il,
+  #    #        chain_code: ir,
+  #    #        depth: 0,
+  #    #        child_number: 0,
+  #    #        # For master key the fingerprint must be zero value
+  #    #        parent_fingerprint: 0x00000000
+  #    #      })
+  #    #
+  #    encoded_xpriv = raw_xpriv_to_bip32_format(priv)
+  #
+  #    %__MODULE__{
+  #      secret: encoded_xpriv,
+  #      chain_code: priv.chain_code,
+  #      master_pubkey: BIP32.Xpub.from_xpriv(priv.raw_secret, priv.chain_code),
+  #      depth: 0,
+  #      child_number: 0,
+  #      parent_fingerprint: 0x00000000
+  #    }
+  #  end
+
   # non-hardened, 0x80000000 is a threshold for hardened
-  def ckd_priv(xpriv, {"normal", index}) when is_integer(index) and index < 0x80000000 do
+  def ckd_priv(xpriv, index) when is_integer(index) and index < 0x80000000 do
     pub_key = Secp256Point.compressed_sec(xpriv.point)
     data = pub_key <> <<index::unsigned-big-integer-size(32)>>
     hmac = :crypto.mac(:hmac, :sha512, xpriv.chain_code, data)
@@ -103,9 +140,8 @@ defmodule BIP32.Xpriv do
   end
 
   # pass only raw index values, not pre-hardened
-
-  def ckd_priv(xpriv, {"hardened", index}) when is_integer(index) and index > 0x80000000 do
-    data = <<0>> <> xpriv.secret <> <<index + 0x80000000::unsigned-big-integer-size(32)>>
+  def ckd_priv(xpriv, index) when is_integer(index) and index >= 0x80000000 do
+    data = <<0>> <> xpriv.secret <> <<index>>
     hmac = :crypto.mac(:hmac, :sha512, xpriv.chain_code, data)
     ckd_priv_finalize(xpriv, hmac, index)
   end
@@ -119,18 +155,17 @@ defmodule BIP32.Xpriv do
     # k_child = (IL + k_parent) % n - Child pk derivation formula
     new_secret_int = rem(il_int + secret_int, n)
     new_secret = <<new_secret_int::unsigned-big-integer-size(256)>>
-    new_point = Secp256Point.from_secret_key(new_secret_int)
+
+    master_pubkey = BI
 
     fingerprint =
-      xpriv.point |> Secp256Point.compressed_sec() |> CryptoUtils.hash160() |> binary_part(0, 4)
-
-    %__MODULE__{
-      secret: new_secret,
-      chain_code: ir,
-      master_pubkey: new_point,
-      depth: xpriv.depth + 1,
-      child_number: i,
-      parent_fingerprint: fingerprint
-    }
+      %__MODULE__{
+        secret: new_secret,
+        chain_code: ir,
+        master_pubkey: BIP32.Xpub.from_xpriv(new_secret, ir),
+        depth: xpriv.depth + 1,
+        child_number: i,
+        parent_fingerprint: fingerprint
+      }
   end
 end

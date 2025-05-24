@@ -3,7 +3,6 @@ defmodule BIP32.Xpriv.Test do
 
   @seed "000102030405060708090a0b0c0d0e0f"
 
-  @tag :in_progress
   test "correct creation of master key" do
     seed = @seed |> Base.decode16!(case: :lower)
 

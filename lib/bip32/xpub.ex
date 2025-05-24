@@ -7,7 +7,7 @@ defmodule BIP32.Xpub do
     :child_number,
     :parent_fingerprint,
     :public_key,
-    :xpub
+    :encoded_xpub
   ]
   defstruct [
     :chain_code,
@@ -20,7 +20,7 @@ defmodule BIP32.Xpub do
     # a compressed point on secp256k1
     :public_key,
     # encoded public key
-    :xpub
+    :encoded_xpub
   ]
 
   def from_xprv(%{private_key: secret} = xprv) when is_binary(secret) do
@@ -64,7 +64,7 @@ defmodule BIP32.Xpub do
     %__MODULE__{
       chain_code: chain_code,
       public_key: compressed_pubkey,
-      xpub: (concat_bin <> checksum) |> Base58.encode_from_binary(),
+      encoded_xpub: (concat_bin <> checksum) |> Base58.encode_from_binary(),
       depth: depth,
       child_number: child_number,
       parent_fingerprint: parent_fingerprint

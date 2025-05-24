@@ -106,6 +106,11 @@ defmodule BIP32.Xprv do
     end)
   end
 
+  # Always convert private_key to binary
+  def ckd_priv(%{private_key: private_key} = xprv, index) when is_integer(private_key) do
+    ckd_priv(%{xprv | private_key: private_key |> :binary.encode_unsigned()}, index)
+  end
+
   # non-hardened, 0x80000000 is a threshold for hardened
   def ckd_priv(%{private_key: private_key, chain_code: chain_code} = xprv, index)
       when is_integer(index) and index > 0 and index < 0x80000000 do
@@ -125,10 +130,16 @@ defmodule BIP32.Xprv do
     ckd_priv_finalize(xprv, hmac, index)
   end
 
-  def ckd_priv_finalize(xprv, hmac, i) when is_binary(hmac) do
+  def ckd_priv_finalize(%{private_key: private_key} = xprv, hmac, i)
+      when is_integer(private_key) do
+    ckd_priv_finalize(%{xprv | private_key: private_key |> :binary.encode_unsigned()}, hmac, i)
+  end
+
+  def ckd_priv_finalize(%{private_key: private_key} = xprv, hmac, i)
+      when is_binary(hmac) and is_binary(private_key) do
     <<il::binary-size(32), ir::binary-size(32)>> = hmac
     il_int = :binary.decode_unsigned(il)
-    secret_int = :binary.decode_unsigned(xprv.private_key)
+    secret_int = :binary.decode_unsigned(private_key)
     n = Secp256Point.n()
 
     # k_child = (IL + k_parent) % n - Child pk derivation formula

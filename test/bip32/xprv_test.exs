@@ -6,7 +6,7 @@ defmodule BIP32.Xprv.Test do
   test "correct creation of master key" do
     seed = @seed |> Base.decode16!(case: :lower)
 
-    %{chain_code: chain_code, encoded_xprv: secret, depth: 0, child_number: 0} =
+    %{chain_code: _chain_code, encoded_xprv: secret, depth: 0, child_number: 0} =
       BIP32.Xprv.new_master(seed)
 
     assert secret ==

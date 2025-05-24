@@ -9,7 +9,7 @@ defmodule BIP32.Xpub.Test do
     %{xpub: pubkey} =
       BIP32.Xprv.new_master(seed)
 
-    assert pubkey.xpub ==
+    assert pubkey.encoded_xpub ==
              "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8"
   end
 end

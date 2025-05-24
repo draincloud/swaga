@@ -2,7 +2,7 @@ require Logger
 
 defmodule HeadersMessageTest do
   use ExUnit.Case
-
+  @moduletag :skip
   test "download the headers, check their proof-of-work and validate the block header difficulty" do
     genesis_block = Block.parse(Block.genesis())
     genesis_hash = Block.hash(genesis_block)

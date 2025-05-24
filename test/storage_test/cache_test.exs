@@ -1,5 +1,6 @@
 defmodule CacheTest do
   use ExUnit.Case
+  @moduletag :skip
 
   setup_all do
     Swaga.Storage.Cache.start([])

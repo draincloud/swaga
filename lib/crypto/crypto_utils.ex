@@ -2,8 +2,7 @@ defmodule CryptoUtils do
   # Sha256 followed by ripemd160
   def hash160(s) do
     sha256_digest = :crypto.hash(:sha256, s)
-    ripemd160_digest = :crypto.hash(:ripemd160, sha256_digest)
-    ripemd160_digest
+    :crypto.hash(:ripemd160, sha256_digest)
   end
 
   # Two Rounds of sha256

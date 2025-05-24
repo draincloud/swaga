@@ -13,22 +13,23 @@ defmodule Base58 do
     end
   end
 
-  def encode_num(num, result) when num > 0 do
+  def encode_num(num, acc \\ [])
+
+  def encode_num(num, acc) when num > 0 do
     {num, mod} = div_mod(num, 58)
 
-    encode_num(num, String.at(@base58_alphabet, mod) <> result)
+    encode_num(num, [String.at(@base58_alphabet, mod) | acc])
   end
 
-  def encode_num(_, result) do
-    result
+  def encode_num(_, acc) do
+    Enum.join(acc)
   end
 
   def encode_from_binary(binary) do
     zeros_len = count_zeros(binary)
     num = :binary.decode_unsigned(binary, :big)
     prefix = String.duplicate("1", zeros_len)
-    result = ""
-    encoded = encode_num(num, result)
+    encoded = encode_num(num)
     prefix <> encoded
   end
 

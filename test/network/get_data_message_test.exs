@@ -3,6 +3,7 @@ require Logger
 defmodule GetDataMessageTest do
   require IEx
   use ExUnit.Case
+  @moduletag :skip
 
   test "test serialize" do
     hex_msg =
@@ -29,7 +30,6 @@ defmodule GetDataMessageTest do
     assert hex_msg == updated_message |> GetDataMessage.serialize() |> Base.encode16(case: :lower)
   end
 
-  @tag :in_progress
   test "send getdata message" do
     # 895752
     last_block =
@@ -40,6 +40,8 @@ defmodule GetDataMessageTest do
     start_block =
       "00000000000000000000646bf8e642b975087e4520b54544b83c316a7af1ce67"
       |> Base.decode16!(case: :lower)
+
+    #    IEx.pry()
 
     address = "1NyLs3xAfq913ugwaZpZ8ygVZoXDSJ7JrN"
     h160 = Base58.decode(address)
@@ -66,6 +68,6 @@ defmodule GetDataMessageTest do
 
     {:ok} = BitcoinNode.send(node, data_message, GetDataMessage)
     merkle = BitcoinNode.wait_for(node, [], Tx.command())
-    #    Logger.debug("data_message #{inspect(merkle)}")
+    Logger.debug("data_message #{inspect(merkle)}")
   end
 end

@@ -129,7 +129,7 @@ defmodule BitcoinNode do
     # So we're reading version and verack message from the node
     #    command = wait_for(node, [], VersionMessage.command())
     # match with verack command, payload must be empty and rest_bin as well
-    command = wait_for(node, [], VersionMessage.command())
+    _command = wait_for(node, [], VersionMessage.command())
     {:ok} = send(node, VerAckMessage.new(), VerAckMessage)
     :ok
   end

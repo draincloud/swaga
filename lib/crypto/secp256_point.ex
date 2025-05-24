@@ -43,9 +43,13 @@ defmodule Secp256Point do
 
   # We can mod by n because nG = 0.
   # That is, every n times we cycle back to zero or the point at infinity.
-  def mul(point, coefficient) do
+  def mul(point, coefficient) when is_integer(coefficient) do
     coefficient = rem(coefficient, @n)
     Point.mul(point, coefficient)
+  end
+
+  def mul(point, coefficient) when is_binary(coefficient) do
+    mul(point, :binary.decode_unsigned(coefficient))
   end
 
   def verify(point, z, sig) do
@@ -132,5 +136,15 @@ defmodule Secp256Point do
       end
 
     Base58.encode_base58_checksum(prefix <> h160)
+  end
+
+  def from_secret_key(secret_key) when is_integer(secret_key) do
+    g = get_g()
+    mul(g, secret_key)
+  end
+
+  def from_secret_key(%PrivateKey{secret: secret}) do
+    g = get_g()
+    mul(g, secret)
   end
 end

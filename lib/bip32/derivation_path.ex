@@ -13,7 +13,7 @@ defmodule BIP32.DerivationPath do
   """
 
   defstruct [:numbers]
-  # Example: m/0'
+  # Example: m/0' or m/0H
   def parse(path) when is_binary(path) do
     components = String.split(path, "/")
     # Check that m is the first component
@@ -30,11 +30,4 @@ defmodule BIP32.DerivationPath do
       end
     end)
   end
-
-  # Empty path for master key
-  def master(), do: ""
-  # Append child number
-  def child(path, child_number), do: ""
-  # Concat paths
-  def extend(path, numbers), do: ""
 end

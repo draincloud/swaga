@@ -1,4 +1,14 @@
 defmodule BIP32.Xprv do
+  @doc """
+  BIP32 implementation.
+  Implementation of BIP32 hierarchical deterministic wallets, as defined
+  at <https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki>.
+  --------
+  Private parent key → private child key
+  Chain code adds entropy to ensure child keys cannot be derived just from the private key alone.
+  Child derivation differs for hardened vs non-hardened keys:
+  If i >= 2³¹, it's a hardened child
+  """
   require IEx
   @mainnet_xprv_version 0x0488ADE4
   @enforce_keys [
@@ -144,10 +154,6 @@ defmodule BIP32.Xprv do
 
     # k_child = (IL + k_parent) % n - Child pk derivation formula
     new_secret = rem(il_int + secret_int, n)
-
-    g = Secp256Point.get_g()
-    pubkey_point = Secp256Point.mul(g, new_secret)
-    parent_pubkey = Secp256Point.compressed_sec(pubkey_point)
 
     <<parent_fingerprint::binary-size(4), _::binary>> =
       xprv.xpub.public_key |> CryptoUtils.hash160()

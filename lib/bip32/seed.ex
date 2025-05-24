@@ -26,19 +26,6 @@ defmodule BIP32.Seed do
     :ok
   end
 
-  # length, byte_size
-  defp validate_mnemonic_size(12, 128) do
-    :ok
-  end
-
-  defp validate_mnemonic_size(24, 256) do
-    :ok
-  end
-
-  defp validate_mnemonic_size(_, _) do
-    :error
-  end
-
   defp entropy_extraction(mnemonic) when is_list(mnemonic) do
     wordlist = BIP39.Wordlist.wordlist()
 
@@ -74,7 +61,6 @@ defmodule BIP32.Seed do
            rounds: 2048
          ) do
       seed -> {:ok, seed}
-      _ -> {:error, :invalid_seed}
     end
   end
 

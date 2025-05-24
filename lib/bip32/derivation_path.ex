@@ -24,7 +24,7 @@ defmodule BIP32.DerivationPath do
       {indic, _} = Integer.parse(i)
 
       if String.contains?(i, "'") or String.contains?(i, "H") do
-        i = indic + 0x80000000
+        indic + 0x80000000
       else
         indic
       end

@@ -1,12 +1,13 @@
 defmodule BIP32.Xpub do
   require IEx
-
+  @mainnet_xpub_version 0x0488B21E
   @enforce_keys [
     :chain_code,
     :depth,
     :child_number,
     :parent_fingerprint,
-    :public_key
+    :public_key,
+    :xpub
   ]
   defstruct [
     :chain_code,
@@ -17,7 +18,9 @@ defmodule BIP32.Xpub do
     # first 4 bytes of parent pubkey hash160
     :parent_fingerprint,
     # a compressed point on secp256k1
-    :public_key
+    :public_key,
+    # encoded public key
+    :xpub
   ]
 
   def from_xprv(%{private_key: secret} = xprv) when is_binary(secret) do
@@ -34,9 +37,9 @@ defmodule BIP32.Xpub do
       when is_integer(secret) and is_binary(chain_code) do
     g = Secp256Point.get_g()
     pubkey_point = Secp256Point.mul(g, secret)
-    compressed_pubkey = Secp256Point.compressed_sec(pubkey_point) |> Helpers.pad_binary(33)
+    compressed_pubkey = Secp256Point.compressed_sec(pubkey_point)
     # For mainnet
-    version_bytes = 0x0488B21E |> :binary.encode_unsigned(:big)
+    version_bytes = @mainnet_xpub_version |> :binary.encode_unsigned(:big)
 
     parent_fingerprint =
       parent_fingerprint |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
@@ -48,20 +51,20 @@ defmodule BIP32.Xpub do
     4 = byte_size(child_number)
     # those are binary values
     32 = byte_size(chain_code)
-    33 = byte_size(compressed_pubkey)
+    ext_pubkey = compressed_pubkey |> Helpers.pad_binary(33)
+    33 = byte_size(ext_pubkey)
 
     concat_bin =
       version_bytes <>
-        <<0>> <> parent_fingerprint <> child_number <> chain_code <> compressed_pubkey
+        <<depth>> <> parent_fingerprint <> child_number <> chain_code <> ext_pubkey
 
     <<checksum::binary-size(4), _::binary>> =
       concat_bin |> CryptoUtils.hash256() |> CryptoUtils.hash256()
 
-    IEx.pry()
-
     %__MODULE__{
       chain_code: chain_code,
-      public_key: (concat_bin <> checksum) |> Base58.encode_from_binary(),
+      public_key: compressed_pubkey,
+      xpub: (concat_bin <> checksum) |> Base58.encode_from_binary(),
       depth: depth,
       child_number: child_number,
       parent_fingerprint: parent_fingerprint

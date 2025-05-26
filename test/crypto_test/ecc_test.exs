@@ -26,16 +26,12 @@ defmodule EccTest do
     x = FieldElement.new(200, prime)
     y = FieldElement.new(119, prime)
 
-    assert_raise ArgumentError, "Cannot create a point, y3 != x3", fn ->
-      Point.new(x, y, a, b)
-    end
+    {:error, :y3_not_equal_x3} = Point.new(x, y, a, b)
 
     x = FieldElement.new(42, prime)
     y = FieldElement.new(99, prime)
 
-    assert_raise ArgumentError, "Cannot create a point, y3 != x3", fn ->
-      Point.new(x, y, a, b)
-    end
+    {:error, :y3_not_equal_x3} = Point.new(x, y, a, b)
   end
 
   test "Coding Point Addition over Finite Fields" do

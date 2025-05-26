@@ -1,28 +1,51 @@
-require Logger
-import CustomOperators
-
 defmodule Point do
+  import CustomOperators
+
+  @moduledoc """
+  Represents a point on the elliptic curve
+  Provides operations for point addition and scalar multiplication.
+  The point at infinity is represented as x: nil, y: nil.
+  """
+
   @enforce_keys [:x, :y, :a, :b]
   defstruct [:x, :y, :a, :b]
 
+  @type t :: %__MODULE__{
+          x: FieldElement.t() | nil,
+          y: FieldElement.t() | nil,
+          a: FieldElement.t(),
+          b: FieldElement.t()
+        }
+  @doc """
+  Creates a new point on an elliptic curve y^2 = x^3 + ax + b mod p.
+
+  ## Parameters
+    - x: %FieldElement{} or nil (for point at infinity).
+    - y: %FieldElement{} or nil (for point at infinity).
+    - a: %FieldElement{} representing curve parameter a.
+    - b: %FieldElement{} representing curve parameter b.
+
+  ## Returns
+    - %Point{} if valid and on curve.
+    - {:error, reason} if invalid or not on curve.
+  """
   def new(
         fe_x,
         fe_y,
         fe_a,
         fe_b
       )
-      when fe_x.num == nil and fe_y.num == nil do
-    %Point{x: nil, y: nil, a: fe_a, b: fe_b}
-  end
+      when fe_x.num == nil and fe_y.num == nil,
+      do: %Point{x: nil, y: nil, a: fe_a, b: fe_b}
 
   def new(
         nil,
         nil,
         fe_a,
         fe_b
-      ) do
-    %Point{x: nil, y: nil, a: fe_a, b: fe_b}
-  end
+      )
+      when is_struct(fe_a, FieldElement) and is_struct(fe_b, FieldElement),
+      do: %Point{x: nil, y: nil, a: fe_a, b: fe_b}
 
   def new(
         fe_x,
@@ -35,28 +58,37 @@ defmodule Point do
       %Point{x: nil, y: nil, a: a, b: b}
     else
       y3 = FieldElement.pow(fe_y, 2)
-      x_1_3 = FieldElement.pow(fe_x, 3)
-      x_2_3 = a ||| fe_x
-      x_3_3 = x_1_3 +++ x_2_3
 
-      x3 =
-        x_3_3 +++ b
+      x3 = FieldElement.pow(fe_x, 3) +++ (a ||| fe_x) +++ b
 
       if FieldElement.equal?(y3, x3) == false do
-        raise ArgumentError, "Cannot create a point, y3 != x3"
+        {:error, :y3_not_equal_x3}
       else
         %Point{x: fe_x, y: fe_y, a: a, b: b}
       end
     end
   end
 
+  @doc """
+  Checks if two points are equal (same x, y, a, b).
+
+  ## Returns
+    - true if equal, false otherwise.
+  """
   def equals?(%Point{x: x, y: y, a: a, b: b}, %Point{x: x, y: y, a: a, b: b}),
     do: true
 
   def equals?(_, _), do: false
 
-  def add(p1, p2) when p1.x == nil, do: p2
-  def add(p1, p2) when p2.x == nil, do: p1
+  @doc """
+  Adds two points on the same elliptic curve.
+
+  ## Returns
+    - %Point{} on success.
+    - {:error, reason} if invalid.
+  """
+  def add(%Point{x: nil, y: nil}, p) when is_struct(p, Point), do: p
+  def add(p, %Point{x: nil, y: nil}) when is_struct(p, Point), do: p
 
   def add(
         %Point{
@@ -141,10 +173,22 @@ defmodule Point do
   end
 
   def add(%Point{}, %Point{}) do
-    raise ArgumentError, "Points are not on the same curve"
+    {:error, :points_not_on_the_same_curve}
   end
 
-  def mul(point, coefficient) when is_integer(coefficient) do
+  @doc """
+  Performs scalar multiplication of a point by an integer.
+
+  ## Parameters
+    - point: %Point{} on the elliptic curve.
+    - coefficient: Non-negative integer scalar.
+
+  ## Returns
+    - %Point{} on success.
+    - {:error, reason} if invalid.
+  """
+  def mul(point, coefficient)
+      when is_integer(coefficient) and is_struct(point, Point) and coefficient >= 0 do
     mul(point, coefficient, %Point{x: nil, y: nil, a: point.a, b: point.b})
   end
 

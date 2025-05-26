@@ -8,10 +8,11 @@ defmodule CryptoUtils do
   # Two Rounds of sha256
   def double_hash256(data) do
     # Compute SHA-256 hash
-    hash = hash256(data)
-    hash = hash256(hash)
     # Convert the binary hash to an integer using big-endian
-    :binary.decode_unsigned(hash, :big)
+    data
+    |> hash256()
+    |> hash256()
+    |> :binary.decode_unsigned(:big)
   end
 
   def hash256(data) do

@@ -1,7 +1,15 @@
-require Logger
-
 defmodule Tx do
-  @sighash_all 1
+  @moduledoc """
+  Represents a Bitcoin transaction, including inputs, outputs, and metadata.
+  Provides functions for parsing, serializing, signing, verifying, and computing fees and IDs.
+  """
+  @type t :: %__MODULE__{
+          version: non_neg_integer(),
+          tx_ins: [TxIn.t()],
+          tx_outs: [TxOut.t()],
+          locktime: non_neg_integer(),
+          testnet: boolean()
+        }
 
   @enforce_keys [
     :version,
@@ -16,43 +24,88 @@ defmodule Tx do
     :testnet
   ]
 
+  @sighash_all 1
+
+  @doc """
+  Creates a new Bitcoin transaction.
+
+  ## Parameters
+    - version: Transaction version (integer).
+    - tx_ins: List of transaction inputs (%TxIn{}).
+    - tx_outs: List of transaction outputs (%TxOut{}).
+    - locktime: Locktime (integer).
+    - testnet: Boolean indicating testnet (true) or mainnet (false).
+
+  ## Returns
+    - %Tx{} if valid.
+    - {:error, reason} if invalid.
+  """
   def new(
         version,
         tx_ins,
         tx_outs,
         locktime,
         testnet
-      ) do
-    %Tx{
-      version: version,
-      tx_ins: tx_ins,
-      tx_outs: tx_outs,
-      locktime: locktime,
-      testnet: testnet
-    }
+      )
+      when is_integer(version) and version > 0 and is_list(tx_ins) and is_list(tx_outs) and
+             is_integer(locktime) and locktime >= 0 and
+             is_boolean(testnet) do
+    if Enum.all?(tx_ins, &is_struct(&1, TxIn)) and Enum.all?(tx_outs, &is_struct(&1, TxOut)) do
+      %Tx{
+        version: version,
+        tx_ins: tx_ins,
+        tx_outs: tx_outs,
+        locktime: locktime,
+        testnet: testnet
+      }
+    else
+      {:error, :invalid_inputs_or_outputs}
+    end
   end
 
+  def new(_version, _tx_ins, _tx_outs, _locktime, _testnet), do: {:error, :invalid_input}
+
+  @doc """
+  Returns the command identifier for transactions.
+
+  ## Returns
+    - "tx"
+  """
   def command, do: "tx"
 
-  def read_varint(<<0xFD, rest::binary>>) do
-    <<two_bytes::binary-size(2), rest2::binary>> = rest
-    {MathUtils.little_endian_to_int(two_bytes), rest2}
-  end
+  @doc """
+  Reads a variable-length integer from a binary.
 
-  def read_varint(<<0xFE, rest::binary>>) do
-    <<four_bytes::binary-size(4), rest2::binary>> = rest
-    {MathUtils.little_endian_to_int(four_bytes), rest2}
-  end
+  ## Parameters
+    - binary: Binary containing the varint.
 
-  def read_varint(<<0xFF, rest::binary>>) do
-    <<eight_bytes::binary-size(8), rest2::binary>> = rest
-    {MathUtils.little_endian_to_int(eight_bytes), rest2}
-  end
+  ## Returns
+    - {integer, remaining_binary} if valid.
+    - {:error, reason} if invalid.
+  """
+  def read_varint(<<prefix, rest::binary>>) when prefix < 0xFD, do: {prefix, rest}
 
-  def read_varint(<<prefix, rest::binary>>) do
-    {prefix, rest}
-  end
+  def read_varint(<<0xFD, two_bytes::binary-size(2), rest::binary>>),
+    do: {MathUtils.little_endian_to_int(two_bytes), rest}
 
+  def read_varint(<<0xFE, four_bytes::binary-size(4), rest::binary>>),
+    do: {MathUtils.little_endian_to_int(four_bytes), rest}
+
+  def read_varint(<<0xFF, eight_bytes::binary-size(8), rest::binary>>),
+    do: {MathUtils.little_endian_to_int(eight_bytes), rest}
+
+  def read_varint(_bin), do: {:error, :invalid_varint}
+
+  @doc """
+  Encodes an integer as a variable-length integer.
+
+  ## Parameters
+    - i: Non-negative integer.
+
+  ## Returns
+    - binary() with encoded varint.
+    - {:error, reason} if invalid.
+  """
   def encode_varint(i) when i < 0xFD do
     <<i>>
   end
@@ -70,10 +123,25 @@ defmodule Tx do
   end
 
   def encode_varint(i) when i < 0x10000000000000000 do
-    raise "Integer too large"
+    {:error, :integer_too_large}
   end
 
-  def parse(serialized_tx, testnet \\ false) when is_binary(serialized_tx) do
+  def encode_varint(_i), do: {:error, :invalid_integer}
+
+  @doc """
+  Parses a serialized Bitcoin transaction.
+
+  ## Parameters
+    - serialized_tx: Binary in Bitcoin wire format.
+    - testnet: Boolean indicating testnet (default: false).
+
+  ## Returns
+    - %Tx{} if valid.
+    - {:error, reason} if invalid.
+  """
+  def parse(tx, testnet \\ false)
+
+  def parse(serialized_tx, testnet) when is_binary(serialized_tx) do
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
     {num_inputs, tx_rest} = read_varint(rest)
 
@@ -96,27 +164,50 @@ defmodule Tx do
 
     %Tx{
       version: MathUtils.little_endian_to_int(version_bin),
-      tx_ins: inputs,
-      tx_outs: Enum.reverse(outputs),
+      tx_ins: inputs |> Enum.reverse(),
+      tx_outs: outputs |> Enum.reverse(),
       locktime: locktime,
       testnet: testnet
     }
   end
 
-  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
-    input_sum =
-      Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
+  def parse(_tx, _testnet), do: {:error, :invalid_input}
 
-    input_sum - Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
+  @doc """
+  Calculates the transaction fee (input sum minus output sum).
+
+  ## Parameters
+    - tx: Transaction (%Tx{}).
+    - testnet: Boolean for testnet (default: false).
+
+  ## Returns
+    - integer() if valid.
+    - {:error, reason} if invalid.
+  """
+  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
+    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
+    output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
+
+    fee = input_sum - output_sum
+
+    cond do
+      fee < 0 -> {:error, :negative_fee}
+      fee == 0 -> {:error, :empty_fee}
+      fee > 0 -> fee
+    end
   end
 
-  # Checking the signature.
-  # A transaction has at least one signature per input.
-  # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
-  # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
-  #######
-  #  Returns the integer representation of the hash that needs to get
-  #  signed for index input_index
+  @doc """
+  Computes the signature hash (z) for a transaction input.
+
+  ## Parameters
+    - tx: Transaction (%Tx{}).
+    - input_index: Index of the input to sign.
+
+  ## Returns
+    - integer() with the signature hash.
+    - {:error, reason} if invalid.
+  """
   def sig_hash(
         %Tx{
           version: version,
@@ -126,7 +217,14 @@ defmodule Tx do
           locktime: locktime
         },
         input_index
-      ) do
+      )
+      when is_integer(input_index) and input_index >= 0 and input_index < length(inputs) do
+    # Checking the signature.
+    # A transaction has at least one signature per input.
+    # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
+    # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
+    #  Returns the integer representation of the hash that needs to get
+    #  signed for index input_index
     # start the serialization with version
     # use int_to_little_endian in 4 bytes
     signature = MathUtils.int_to_little_endian(version, 4)

@@ -143,7 +143,7 @@ defmodule Block do
 
   ## Returns
     - %Block{} on success.
-    - {:error, :reason} 
+    - {:error, reason}
   """
   def parse(serialized_block)
       when is_binary(serialized_block) and byte_size(serialized_block) == 80 do

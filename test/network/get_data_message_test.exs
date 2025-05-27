@@ -56,7 +56,7 @@ defmodule GetDataMessageTest do
 
     get_headers = GetHeadersMessage.new(70015, 1, start_block, last_block)
     {:ok} = BitcoinNode.send(node, get_headers, GetHeadersMessage)
-    headers = BitcoinNode.wait_for(node, [], HeadersMessage.command())
+    headers = BitcoinNode.wait_for(node, HeadersMessage.command())
     getdata = GetDataMessage.new()
     %{blocks: blocks} = HeadersMessage.parse(headers.payload)
 

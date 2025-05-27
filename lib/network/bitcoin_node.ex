@@ -129,6 +129,8 @@ defmodule BitcoinNode do
         buffer \\ <<>>,
         timeout \\ 10_000
       ) do
+    Logger.debug("Buffer -> #{inspect(buffer)}")
+
     case NetworkEnvelope.parse(buffer) do
       {:ok, network, <<>>} ->
         {:ok, network}
@@ -169,10 +171,11 @@ defmodule BitcoinNode do
   def wait_for(node, required_command, buffer \\ <<>>) do
     case read(node, buffer) do
       {:ok, envelope, rest_bin} ->
+        Logger.debug("Received #{envelope.command}, waiting for #{required_command}...")
+
         if envelope.command == required_command do
           {:ok, envelope, rest_bin}
         else
-          Logger.debug("Received #{envelope.command}, waiting for #{required_command}...")
           wait_for(node, required_command, rest_bin)
         end
 
@@ -197,8 +200,8 @@ defmodule BitcoinNode do
   def handshake(%BitcoinNode{} = node) do
     with {:ok} <- send(node, VersionMessage.new(), VersionMessage),
          {:ok, _version_msg, rest1} <- wait_for(node, VersionMessage.command()),
-         {:ok} <- send(node, VerAckMessage.new(), VerAckMessage),
-         {:ok, _verack_msg, <<>>} <- wait_for(node, VerAckMessage.command(), rest1) do
+         {:ok} <- send(node, VerAckMessage.new(), VerAckMessage) do
+      #         {:ok, _verack_msg, <<>>} <- wait_for(node, VerAckMessage.command(), rest1)
       {:ok}
     else
       {:error, reason} -> {:error, {:handshake_failed, reason}}

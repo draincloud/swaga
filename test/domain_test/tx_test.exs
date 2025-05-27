@@ -104,7 +104,7 @@ defmodule TxTest do
       )
 
     prev_index = 13
-    tx_in = TxIn.new(prev_tx, prev_index, nil, nil)
+    tx_in = TxIn.new(prev_tx, prev_index)
     change_amount = trunc(0.33 * 100_000_000)
     change_h160 = Base58.decode("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
     change_script = Script.p2pkh_script(change_h160)

@@ -1,5 +1,35 @@
-# Merkle Block is used for SPV-clients
 defmodule MerkleBlock do
+  import Bitwise
+
+  @moduledoc """
+  Represents a Merkle Block, used by Simplified Payment Verification (SPV) clients.
+
+  A Merkle Block contains the block header and a partial Merkle tree that proves
+  the inclusion of specific transactions within the block, without needing to
+  download the entire block.
+  """
+  @type t :: %__MODULE__{
+          version: integer(),
+          # 32-byte hash of the previous block header
+          prev_block: binary(),
+          # 32-byte root of the Merkle tree
+          merkle_root: binary(),
+          # Unix epoch time
+          timestamp: non_neg_integer(),
+          # 4-byte target difficulty
+          bits: binary(),
+          # 4-byte nonce used in mining
+          nonce: binary(),
+          # Total number of transactions in the full block
+          number_of_txs: non_neg_integer(),
+          # Number of hashes in the `hashes` list
+          number_of_hashes: non_neg_integer(),
+          # List of 32-byte hashes in the partial Merkle tree
+          hashes: [binary()],
+          # A bitfield indicating the structure of the partial Merkle tree
+          flag_bits: binary()
+        }
+
   @enforce_keys [
     :version,
     :prev_block,
@@ -20,16 +50,20 @@ defmodule MerkleBlock do
     :timestamp,
     :bits,
     :nonce,
-    # Indicates how many leaves in particular merkle tree
     :number_of_txs,
     :number_of_hashes,
     :hashes,
-    # Gives info about where the hashes go withing the merkle tree
     :flag_bits
   ]
 
+  @doc """
+  Returns the command identifier for Merkle Blocks, used in the Bitcoin network protocol.
+  """
   def command, do: "merkleblock"
 
+  @doc """
+  Creates a new `MerkleBlock`.
+  """
   def new(
         version,
         prev_block,
@@ -56,6 +90,9 @@ defmodule MerkleBlock do
     }
   end
 
+  @doc """
+  Parses a `MerkleBlock` from its serialized binary format.
+  """
   def parse(serialized_block) when is_binary(serialized_block) do
     <<version::binary-size(4), prev_block::binary-size(32), merkle_root::binary-size(32),
       timestamp::binary-size(4), bits::binary-size(4), nonce::binary-size(4),
@@ -90,8 +127,6 @@ defmodule MerkleBlock do
       flags
     )
   end
-
-  import Bitwise
 
   @doc """
   Given a list of bytes (integers 0..255), returns a flat list of bits

@@ -2,7 +2,6 @@ require Logger
 
 defmodule TxTest do
   use ExUnit.Case
-  #  @moduletag :skip
 
   test "parse version" do
     raw_tx =

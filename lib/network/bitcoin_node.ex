@@ -105,7 +105,7 @@ defmodule BitcoinNode do
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
       :ok -> {:ok}
-      {:error, error} -> raise "Error sending request #{error}"
+      {:error, error} -> {:error, "Error sending request #{error}"}
     end
   end
 
@@ -127,64 +127,81 @@ defmodule BitcoinNode do
   def read(
         %BitcoinNode{socket: socket} = node,
         buffer \\ <<>>,
-        do_parse \\ true,
         timeout \\ 10_000
       ) do
-    case Socket.recv(socket, 0, timeout) do
-      {:error, error} ->
-        raise "Error reading from socket, #{inspect(error)}"
+    case NetworkEnvelope.parse(buffer) do
+      {:ok, network, <<>>} ->
+        {:ok, network}
 
-      {:ok, data} ->
-        #        Logger.debug("Data from socket #{inspect(:binary.bin_to_list(data))}")
+      {:ok, network, rest_binary} ->
+        {:ok, network, rest_binary}
 
-        if do_parse do
-          case NetworkEnvelope.parse(buffer <> data) do
-            # If we get an error, we read again
-            {:missing_payload_size, errored_data} ->
-              read(node, errored_data)
+      {:error, _} ->
+        case Socket.recv(socket, 0, timeout) do
+          {:ok, <<>>} ->
+            {:error, :socket_empty_data}
 
-            # If it's correctly parsed, then we return it
-            network ->
-              Logger.debug("Parsed data #{inspect(network)}")
-              network
-          end
-        else
-          data
+          {:ok, data} ->
+            read(node, buffer <> data, timeout)
+
+          {:error, error} ->
+            {:error, error}
         end
     end
   end
 
-  # Maybe remove parsed_envelopes now
-  def wait_for(node, parsed_envelopes, required_command, buffer \\ "") do
-    {network, rest_bin} = read(node, buffer, true)
-    parsed = parsed_envelopes ++ [network]
+  @doc """
+  Waits for a specific command message from the node.
 
-    case Enum.find(parsed, fn env -> env.command == required_command end) do
-      nil ->
-        wait_for(node, parsed, required_command, rest_bin)
+  It continuously reads messages using `read/3` until a message with
+  the `required_command` is found.
 
-      envelope ->
-        Logger.debug("Parsed envelopes #{inspect(parsed)}")
-        Logger.debug("rest_bin #{inspect(rest_bin)}")
+  ## Parameters
+    - node: The `BitcoinNode` instance.
+    - required_command: The command string (e.g., `"verack"`) to wait for.
+    - buffer: Internal buffer (defaults to `<<>>`).
+    - timeout: Timeout per read attempt.
 
-        if rest_bin != <<>> do
-          rest_parsed = NetworkEnvelope.parse(rest_bin)
-          Logger.debug("Parsed from rest_bin #{inspect(rest_parsed)}")
+  ## Returns
+    - `{:ok, %NetworkEnvelope{}, binary()}`: The found envelope and any remaining data.
+    - `{:error, reason}` on failure.
+  """
+  def wait_for(node, required_command, buffer \\ <<>>) do
+    case read(node, buffer) do
+      {:ok, envelope, rest_bin} ->
+        if envelope.command == required_command do
+          {:ok, envelope, rest_bin}
         else
-          envelope
+          Logger.debug("Received #{envelope.command}, waiting for #{required_command}...")
+          wait_for(node, required_command, rest_bin)
         end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  # Do a handshake with the other node
-  # Handshake is sending a version message and getting a VerAck back
+  @doc """
+  Performs the Bitcoin P2P handshake.
+
+  Sends a `VersionMessage`, waits for the peer's `VersionMessage`, sends
+  a `VerAckMessage`, and waits for the peer's `VerAckMessage`.
+
+  ## Parameters
+    - node: The `BitcoinNode` instance.
+
+  ## Returns
+    - `:ok` if successful.
+    - `{:error, reason}` on failure.
+  """
   def handshake(%BitcoinNode{} = node) do
-    {:ok} = send(node, VersionMessage.new(), VersionMessage)
-    # So we're reading version and verack message from the node
-    #    command = wait_for(node, [], VersionMessage.command())
-    # match with verack command, payload must be empty and rest_bin as well
-    _command = wait_for(node, [], VersionMessage.command())
-    {:ok} = send(node, VerAckMessage.new(), VerAckMessage)
-    :ok
+    with {:ok} <- send(node, VersionMessage.new(), VersionMessage),
+         {:ok, _version_msg, rest1} <- wait_for(node, VersionMessage.command()),
+         {:ok} <- send(node, VerAckMessage.new(), VerAckMessage),
+         {:ok, _verack_msg, <<>>} <- wait_for(node, VerAckMessage.command(), rest1) do
+      {:ok}
+    else
+      {:error, reason} -> {:error, {:handshake_failed, reason}}
+    end
   end
 end

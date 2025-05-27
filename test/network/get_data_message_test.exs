@@ -3,7 +3,7 @@ require Logger
 defmodule GetDataMessageTest do
   require IEx
   use ExUnit.Case
-  @moduletag :skip
+  @moduletag :network
 
   test "test serialize" do
     hex_msg =
@@ -49,7 +49,7 @@ defmodule GetDataMessageTest do
     bf = BloomFilter.new(30, 5, 90210)
     bloom_filter = BloomFilter.add(bf, h160)
 
-    :ok = BitcoinNode.handshake(node)
+    {:ok} = BitcoinNode.handshake(node)
 
     {:ok} =
       BitcoinNode.send(node, BloomFilter.filterload(bloom_filter), GenericMessage, "filterload")

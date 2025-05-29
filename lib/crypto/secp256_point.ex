@@ -1,7 +1,18 @@
-require Logger
-import CustomOperators
-
 defmodule Secp256Point do
+  import CustomOperators
+
+  @moduledoc """
+  Represents a point on Bitcoin's secp256k1 elliptic curve (y^2 = x^3 + 7 mod p).
+  Provides functions for point creation, ECDSA signature verification, SEC format
+  encoding/decoding, and Bitcoin address generation.
+  """
+  @type t :: %__MODULE__{
+          x: Secp256Field.t() | nil,
+          y: Secp256Field.t() | nil,
+          a: Secp256Field.t(),
+          b: Secp256Field.t()
+        }
+
   @enforce_keys [:x, :y, :a, :b]
   defstruct [:x, :y, :a, :b]
   @n 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -18,6 +29,17 @@ defmodule Secp256Point do
     @n
   end
 
+  @doc """
+  Creates a new point on the secp256k1 curve.
+
+  ## Parameters
+    - x: Integer or %Secp256Field{} (x-coordinate).
+    - y: Integer or %Secp256Field{} (y-coordinate).
+
+  ## Returns
+    - %Secp256Point{} if valid and on curve.
+    - {:error, reason} if invalid or not on curve.
+  """
   def new(x, y) when is_integer(x) and is_integer(y) do
     a = Secp256Field.new(@a)
     b = Secp256Field.new(@b)
@@ -31,19 +53,37 @@ defmodule Secp256Point do
     Point.new(x, y, a, b)
   end
 
+  def new(_x, _y), do: {:error, :invalid_coordinates}
+
   def new(x, y, a, b) do
     a = Secp256Field.new(a)
     b = Secp256Field.new(b)
     Point.new(x, y, a, b)
   end
 
+  @doc """
+  Returns the secp256k1 generator point G.
+
+  ## Returns
+    - %Secp256Point{} representing G.
+  """
   def get_g() do
     new(@g_x, @g_y)
   end
 
-  # We can mod by n because nG = 0.
-  # That is, every n times we cycle back to zero or the point at infinity.
-  def mul(point, coefficient) when is_integer(coefficient) do
+  @doc """
+  Performs scalar multiplication of a secp256k1 point by a coefficient.
+
+  ## Parameters
+    - point: %Secp256Point{} on the secp256k1 curve.
+    - coefficient: Integer or binary scalar.
+
+  ## Returns
+    - %Secp256Point{} on success.
+    - {:error, reason} if invalid.
+  """
+  def mul(point, coefficient)
+      when is_integer(coefficient) and is_integer(coefficient) and coefficient >= 0 do
     coefficient = rem(coefficient, @n)
     Point.mul(point, coefficient)
   end
@@ -52,20 +92,42 @@ defmodule Secp256Point do
     mul(point, :binary.decode_unsigned(coefficient))
   end
 
-  def verify(point, z, sig) do
+  def mul(_point, _coefficient), do: {:error, :invalid_input}
+
+  @doc """
+  Verifies an ECDSA signature for a message hash.
+
+  ## Parameters
+    - point: %Secp256Point{} (public key).
+    - z: 256-bit integer (message hash).
+    - sig: %Signature{} with r, s components.
+
+  ## Returns
+    - boolean() indicating if the signature is valid.
+    - {:error, reason} if invalid.
+  """
+  def verify(point, z, %{r: r, s: s})
+      when is_integer(z) and z >= 0 and is_integer(r) and is_integer(s) do
     # s_inv (1/s) is calculated using Fermat’ little theorem on the order of the group,
     # n, which is prime.
-    s_inv = MathUtils.powmod(sig.s, @n - 2, @n)
+    s_inv = MathUtils.powmod(s, @n - 2, @n)
     # u = z/s. Note that we can mod by n as that’s the order of the group.
     u = rem(z * s_inv, @n)
     # v = r/s. Note that we can mod by n as that’s the order of the group.
-    v = rem(sig.r * s_inv, @n)
+    v = rem(r * s_inv, @n)
     g = get_g()
     #    uG + vP should be R.
     total = Point.add(mul(g, u), mul(point, v))
-    total.x.num == sig.r
+    total.x.num == r
   end
 
+  @doc """
+  Encodes a secp256k1 point in uncompressed SEC format (04|x|y).
+
+  ## Returns
+    - binary() with 65-byte SEC encoding.
+    - {:error, reason} if invalid.
+  """
   def uncompressed_sec(%{
         x: %FieldElement{num: num_x},
         y: %FieldElement{num: num_y}
@@ -75,6 +137,15 @@ defmodule Secp256Point do
       <<num_y::unsigned-big-integer-size(256)>>
   end
 
+  def uncompressed_sec(_point), do: {:error, :invalid_point}
+
+  @doc """
+  Encodes a secp256k1 point in compressed SEC format (02|x or 03|x).
+
+  ## Returns
+    - binary() with 33-byte SEC encoding.
+    - {:error, reason} if invalid.
+  """
   def compressed_sec(%{point: %{x: %{num: x}, y: %{num: y}}}) do
     case rem(y, 2) == 0 do
       true -> <<2>> <> <<x::unsigned-big-integer-size(256)>>
@@ -89,7 +160,18 @@ defmodule Secp256Point do
     end
   end
 
-  # case for uncompressed
+  def compressed_sec(_point), do: {:error, :invalid_point}
+
+  @doc """
+  Parses a SEC-encoded public key into a secp256k1 point.
+
+  ## Parameters
+    - sec_bin: Binary in uncompressed (04|x|y) or compressed (02|x or 03|x) format.
+
+  ## Returns
+    - {:ok, %Secp256Point{}} if valid.
+    - {:error, reason} if invalid.
+  """
   def parse(sec_bin = <<4, _rem::binary>>) do
     <<_prefix, num_bytes::binary-size(32), num_bytes_rest::binary>> = sec_bin
 
@@ -99,8 +181,7 @@ defmodule Secp256Point do
     )
   end
 
-  # case 2 or 3 (is_even or not)
-  def parse(<<is_even, x_num::binary>>) do
+  def parse(<<prefix, x_num::binary>>) when prefix in [2, 3] do
     x = Secp256Field.new(:binary.decode_unsigned(x_num, :big))
     alpha = FieldElement.pow(x, 3) +++ Secp256Field.new(@b)
     beta = Secp256Field.sqrt(alpha)
@@ -113,12 +194,26 @@ defmodule Secp256Point do
         {Secp256Field.new(p - beta.num), beta}
       end
 
-    case is_even == 2 do
+    case prefix == 2 do
       true -> Secp256Point.new(x, even_beta)
       false -> Secp256Point.new(x, odd_beta)
     end
   end
 
+  def parse(_sec_bin), do: {:error, :invalid_sec_format}
+
+  @doc """
+  Generates a Bitcoin address from a secp256k1 point.
+
+  ## Parameters
+    - point: %Secp256Point{} (public key).
+    - is_compressed: Boolean for compressed/uncompressed SEC format.
+    - is_testnet: Boolean for testnet (true) or mainnet (false).
+
+  ## Returns
+    - String.t() with Base58Check-encoded address.
+    - {:error, reason} if invalid.
+  """
   def address(point, is_compressed, is_testnet) do
     sec =
       case is_compressed do
@@ -138,7 +233,17 @@ defmodule Secp256Point do
     Base58.encode_base58_checksum(prefix <> h160)
   end
 
-  def from_secret_key(secret_key) when is_integer(secret_key) do
+  @doc """
+  Generates a secp256k1 public key point from a secret key.
+
+  ## Parameters
+    - secret_key: Integer or %PrivateKey{}.
+
+  ## Returns
+    - %Secp256Point{} on success.
+    - {:error, reason} if invalid.
+  """
+  def from_secret_key(secret_key) when is_integer(secret_key) and secret_key > 0 do
     g = get_g()
     mul(g, secret_key)
   end
@@ -147,4 +252,6 @@ defmodule Secp256Point do
     g = get_g()
     mul(g, secret)
   end
+
+  def from_secret_key(_secret_key), do: {:error, :invalid_secret}
 end

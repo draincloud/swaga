@@ -2,6 +2,11 @@ require Logger
 import Bitwise
 
 defmodule Block do
+  @moduledoc """
+  Represents a Bitcoin block, including its header (version, prev_block, merkle_root, timestamp, bits, nonce)
+  and transaction hashes. Provides functions for serialization, parsing, proof-of-work validation,
+  and difficulty calculation per the Bitcoin protocol.
+  """
   @two_weeks 1_209_600
 
   @enforce_keys [
@@ -31,6 +36,32 @@ defmodule Block do
     :tx_hashes
   ]
 
+  @type t :: %__MODULE__{
+          version: non_neg_integer(),
+          prev_block: <<_::256>>,
+          merkle_root: <<_::256>>,
+          timestamp: non_neg_integer(),
+          bits: <<_::32>>,
+          nonce: <<_::32>>,
+          tx_hashes: [<<_::256>>]
+        }
+
+  @doc """
+  Creates a new block with the given fields.
+
+  ## Parameters
+    - version: Block version (non-negative integer).
+    - prev_block: 32-byte previous block hash.
+    - merkle_root: 32-byte Merkle root hash.
+    - timestamp: Unix timestamp (non-negative integer).
+    - bits: 4-byte difficulty target.
+    - nonce: 4-byte nonce.
+    - tx_hashes: List of 32-byte transaction hashes (default: []).
+
+  ## Returns
+    - %Block{} on success.
+    - Raises ArgumentError on invalid inputs.
+  """
   def new(
         version,
         prev_block,
@@ -39,27 +70,53 @@ defmodule Block do
         bits,
         nonce,
         tx_hashes \\ []
-      ) do
-    %Block{
-      version: version,
-      prev_block: prev_block,
-      merkle_root: merkle_root,
-      timestamp: timestamp,
-      bits: bits,
-      nonce: nonce,
-      tx_hashes: tx_hashes
-    }
+      )
+      when is_integer(version) and version >= 0 and
+             is_binary(prev_block) and byte_size(prev_block) == 32 and
+             is_binary(merkle_root) and byte_size(merkle_root) == 32 and
+             is_integer(timestamp) and timestamp >= 0 and
+             is_binary(bits) and byte_size(bits) == 4 and
+             is_binary(nonce) and byte_size(nonce) == 4 and
+             is_list(tx_hashes) do
+    case Enum.all?(tx_hashes, &(is_binary(&1) and byte_size(&1) == 32)) do
+      false ->
+        {:error, :invalid_tx_hashes}
+
+      true ->
+        %Block{
+          version: version,
+          prev_block: prev_block,
+          merkle_root: merkle_root,
+          timestamp: timestamp,
+          bits: bits,
+          nonce: nonce,
+          tx_hashes: tx_hashes
+        }
+    end
   end
 
-  def validate_merkle_root(%Block{merkle_root: root, tx_hashes: tx_hashes}) do
+  @doc """
+  Validates the block's Merkle root against its transaction hashes.
+
+  Returns true if the computed Merkle root matches the stored root, false otherwise.
+  """
+  def validate_merkle_root(%Block{merkle_root: root, tx_hashes: tx_hashes})
+      when is_binary(root) and byte_size(root) == 32 and is_list(tx_hashes) and tx_hashes != [] do
     # we need to reverse hashes because of little-endian
     calculated_root =
-      tx_hashes |> Enum.map(fn x -> Helpers.reverse_binary(x) end) |> MerkleTree.merkle_root()
+      tx_hashes |> Enum.map(&Helpers.reverse_binary/1) |> MerkleTree.merkle_root()
 
     Helpers.reverse_binary(root) == calculated_root
   end
 
-  #  Returns the 80 byte block header
+  def validate_merkle_root(_), do: false
+
+  @doc """
+  Serializes a block header into an 80-byte binary per Bitcoin protocol.
+
+  ## Returns
+    - 80-byte binary representing the block header.
+  """
   def serialize(%Block{
         version: version,
         prev_block: prev_block,
@@ -67,18 +124,27 @@ defmodule Block do
         timestamp: timestamp,
         bits: bits,
         nonce: nonce
-      }) do
+      })
+      when is_integer(version) and is_binary(prev_block) and byte_size(prev_block) == 32 and
+             is_binary(merkle_root) and byte_size(merkle_root) == 32 and
+             is_integer(timestamp) and is_binary(bits) and byte_size(bits) == 4 and
+             is_binary(nonce) and byte_size(nonce) == 4 do
     encoded_version = MathUtils.int_to_little_endian(version, 4)
     # Reverse, because we store it as little-endian
     encoded_prev_block = Helpers.reverse_binary(prev_block)
     merkle_root = Helpers.reverse_binary(merkle_root)
-
     timestamp = MathUtils.int_to_little_endian(timestamp, 4)
+
     encoded_version <> encoded_prev_block <> merkle_root <> timestamp <> bits <> nonce
   end
 
-  # Block Headers have the fixed length (80 bytes)
-  # Takes a byte stream and parses a block. Returns a Block object
+  @doc """
+  Parses an 80-byte serialized block header into a %Block{} struct.
+
+  ## Returns
+    - %Block{} on success.
+    - {:error, reason}
+  """
   def parse(serialized_block)
       when is_binary(serialized_block) and byte_size(serialized_block) == 80 do
     <<version::binary-size(4), prev_block::binary-size(32), merkle_root::binary-size(32),
@@ -94,10 +160,14 @@ defmodule Block do
     )
   end
 
-  def parse(block) do
-    raise "Size is not correct, expected 80, got #{inspect(byte_size(block))}"
-  end
+  def parse(_), do: {:error, :invalid_block_header_size}
 
+  @doc """
+  Computes the double SHA-256 hash of the block header, reversed for Bitcoin's little-endian convention.
+
+  ## Returns
+    - 32-byte binary hash.
+  """
   def hash(%Block{} = block) do
     hash =
       serialize(block)
@@ -110,30 +180,53 @@ defmodule Block do
     hash
   end
 
+  @doc """
+  Checks if the block signals support for BIP-9 (soft fork signaling).
+  """
   def bip9(%Block{version: version}) do
-    version >>> 29 == 001
+    version >>> 29 == 0b001
   end
 
+  @doc """
+  Checks if the block signals support for BIP-91 (SegWit activation).
+  """
   def bip91(%Block{version: version}) do
-    (version >>> 4 &&& 1) == 1
+    (version >>> 4 &&& 0b1) == 1
   end
 
+  @doc """
+  Checks if the block signals support for BIP-141 (SegWit).
+  """
   def bip141(%Block{version: version}) do
-    (version >>> 1 &&& 1) == 1
+    (version >>> 1 &&& 0b1) == 1
   end
 
-  # Returns the proof-of-work target based on the bits
-  def bits_to_target(bits) when is_binary(bits) do
+  @doc """
+  Converts a 4-byte bits field to a proof-of-work target (integer).
+
+  ## Parameters
+    - bits: 4-byte binary (3-byte coefficient + 1-byte exponent).
+
+  ## Returns
+    - Integer target.
+  """
+  def bits_to_target(bits) when is_binary(bits) and byte_size(bits) == 4 do
     # last byte is exponent
     <<rest_bits::binary-size(byte_size(bits) - 1), exponent>> = bits
-    # the first three bytes are the coefficient in lttle endian
+    # the first three bytes are the coefficient in little endian
     coefficient = MathUtils.little_endian_to_int(rest_bits)
     # the formula is:
     # coefficient * 256**(exponent-3)
     coefficient * 256 ** (exponent - 3)
   end
 
-  def target_to_bits(target) when is_integer(target) do
+  @doc """
+  Converts an integer target to a 4-byte bits field.
+
+  ## Returns
+    - 4-byte binary.
+  """
+  def target_to_bits(target) when is_integer(target) and target > 0 do
     # encode and get rid of leading 0's
     <<first_byte, _::binary>> =
       tx =
@@ -157,11 +250,22 @@ defmodule Block do
     Helpers.reverse_binary(coefficient) <> <<exponent>>
   end
 
-  # difficulty = 0xffff × 256 ** (0x1d – 3) / target
+  @doc """
+  Calculates the block's difficulty based on its bits field.
+
+  ## Returns
+    - Float representing difficulty (0xFFFF * 256^(0x1D-3) / target).
+  """
   def difficulty(%Block{bits: bits}) do
     0xFFFF * 256 ** (0x1D - 3) / bits_to_target(bits)
   end
 
+  @doc """
+  Checks if the block's hash satisfies the proof-of-work target.
+
+  ## Returns
+    - true if the hash is below the target, false otherwise.
+  """
   def check_pow(%Block{bits: bits} = block) do
     proof = block |> hash |> Helpers.reverse_binary() |> MathUtils.little_endian_to_int()
     bits_to_target(bits) > proof
@@ -171,9 +275,20 @@ defmodule Block do
     0xFFFF * 256 ** (0x1D - 3)
   end
 
-  # Calculates the new bits given
-  # a 2016-block time differential and the previous bits
-  def calculate_new_bits(prev_bits, time_diff) do
+  @doc """
+  Calculates new bits for the next difficulty adjustment based on the previous bits
+  and the time differential between 2016 blocks.
+
+  ## Parameters
+    - prev_bits: 4-byte binary of previous difficulty target.
+    - time_diff: Time difference in seconds (non-negative integer).
+
+  ## Returns
+    - 4-byte binary of new bits.
+  """
+  def calculate_new_bits(prev_bits, time_diff)
+      when is_binary(prev_bits) and byte_size(prev_bits) == 4 and
+             is_integer(time_diff) and time_diff >= 0 do
     diff =
       cond do
         # if the time differential is greater than 8 weeks, set to 8 weeks
@@ -185,19 +300,13 @@ defmodule Block do
 
     # the new target is the previous target * time differential / two weeks
     new_target = (bits_to_target(prev_bits) * diff) |> div(@two_weeks)
-
-    max = max_target()
-
-    new_target =
-      if new_target > max do
-        max
-      else
-        new_target
-      end
-
-    target_to_bits(new_target)
+    new_target = min(new_target, max_target())
+    target_to_bits(round(new_target))
   end
 
+  @doc """
+  Returns the Bitcoin genesis block header
+  """
   def genesis() do
     Base.decode16!(
       "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
@@ -205,6 +314,9 @@ defmodule Block do
     )
   end
 
+  @doc """
+  Returns the bits for the lowest difficulty (genesis block).
+  """
   def lowest_bits() do
     Base.decode16!("ffff001d", case: :lower)
   end

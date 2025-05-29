@@ -1,7 +1,7 @@
-import Bitwise
-require Logger
-
 defmodule VM do
+  import Bitwise
+  require Logger
+
   def fetch_operation(cmd) when is_integer(cmd) do
     Map.fetch!(opcode_functions(), cmd)
   end

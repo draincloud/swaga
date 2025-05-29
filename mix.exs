@@ -27,8 +27,8 @@ defmodule Swaga.MixProject do
       {:poison, "~> 6.0"},
       {:plug, "~> 1.7"},
       {:cowboy, "~> 2.13"},
-      {:plug_cowboy, "~> 2.0"},
       {:connection, "~> 1.1.0"},
+      {:plug_cowboy, "~> 2.0"},
       {:murmur, "~> 1.0"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:pbkdf2_elixir, "~> 2.3.1"}

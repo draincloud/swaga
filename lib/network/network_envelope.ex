@@ -63,11 +63,6 @@ defmodule NetworkEnvelope do
 
   def parse(serialized_network, testnet \\ false)
 
-  # todo
-  #  defmodule Framer do
-  #    @header_size 24  # 4-magic + 12-cmd + 4-len + 4-checksum
-  # create a framer to read buffer and concatenate at the end, if payload_size is bigger than actual payload
-
   def parse("", _) do
     raise "Serialized envelope is empty, try retrying"
   end

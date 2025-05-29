@@ -1,6 +1,27 @@
-require Logger
-
 defmodule MerkleTree do
+  @moduledoc """
+  Represents and processes Merkle Trees, particularly for SPV proofs.
+
+  This module allows initializing a Merkle tree structure and populating it
+  based on the `flag_bits` and `hashes` provided in a Bitcoin `MerkleBlock`.
+  It facilitates navigation within the tree and can verify the Merkle root
+  derived from a partial proof. It also includes functions to calculate
+  Merkle roots from a full list of hashes.
+  """
+  # Define the structure of a Merkle Tree state during parsing.
+  @type t :: %__MODULE__{
+          # Total number of leaves (transactions) in the full tree.
+          total: non_neg_integer(),
+          # Maximum depth of the tree.
+          max_depth: non_neg_integer(),
+          # Nested list representing tree nodes; :none for unknown.
+          nodes: [[binary() | :none]],
+          # Current depth while traversing.
+          current_depth: non_neg_integer(),
+          # Current index at the depth.
+          current_index: non_neg_integer()
+        }
+
   # 1. Hash all the items of the ordered list with the provided hash function.
   # 2. If there is exactly 1 hash, we are done.
   # 3. Otherwise, if there is an odd number of hashes, we duplicate the last hash in the
@@ -12,20 +33,22 @@ defmodule MerkleTree do
   @enforce_keys [:total, :max_depth, :nodes, :current_depth, :current_index]
   defstruct [:total, :max_depth, :nodes, :current_depth, :current_index]
 
+  @doc """
+  Creates a new, empty Merkle Tree structure for a given number of leaves.
+  """
   def new(total_leaves) when is_integer(total_leaves) do
     max_depth =
       total_leaves
       |> :math.log2()
-      |> Float.ceil()
-      |> round()
+      |> :math.ceil()
+      |> trunc()
 
     nodes =
       0..max_depth
-      |> Enum.with_index()
-      |> Enum.reduce([], fn {i, _}, acc ->
+      |> Enum.map(fn depth ->
         # the number of items at this depth
-        num_items = (total_leaves / :math.pow(2, max_depth - i)) |> Float.ceil() |> round
-        acc ++ [List.duplicate(:none, num_items)]
+        num_items = (total_leaves / :math.pow(2, max_depth - depth)) |> :math.ceil() |> trunc
+        List.duplicate(:none, num_items)
       end)
 
     %MerkleTree{
@@ -37,6 +60,7 @@ defmodule MerkleTree do
     }
   end
 
+  @doc "Moves the current position one level up in the tree."
   def up(%MerkleTree{current_depth: 0} = tree), do: tree
 
   def up(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
@@ -44,20 +68,24 @@ defmodule MerkleTree do
     %MerkleTree{merkle_tree | current_depth: depth - 1, current_index: div(index, 2)}
   end
 
+  @doc "Moves the current position to the left child."
   def left(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
       when depth >= 0 and index >= 0 do
     %MerkleTree{merkle_tree | current_depth: depth + 1, current_index: index * 2}
   end
 
+  @doc "Moves the current position to the right child."
   def right(%MerkleTree{current_depth: depth, current_index: index} = merkle_tree)
       when depth >= 0 and index >= 0 do
     %MerkleTree{merkle_tree | current_depth: depth + 1, current_index: index * 2 + 1}
   end
 
+  @doc "Gets the root node of the tree."
   def root(%MerkleTree{nodes: nodes}) do
     nodes |> Enum.at(0) |> Enum.at(0)
   end
 
+  @doc "Sets the value of the current node."
   def set_current_node(
         %MerkleTree{nodes: nodes, current_depth: current_depth, current_index: current_index} =
           merkle_tree,
@@ -70,6 +98,7 @@ defmodule MerkleTree do
     %MerkleTree{merkle_tree | nodes: new_nodes}
   end
 
+  @doc "Gets the value of the current node."
   def get_current_node(%MerkleTree{
         nodes: nodes,
         current_depth: current_depth,
@@ -78,6 +107,7 @@ defmodule MerkleTree do
     nodes |> Enum.at(current_depth) |> Enum.at(current_index)
   end
 
+  @doc "Gets the value of the left child of the current node."
   def get_left_node(%MerkleTree{
         nodes: nodes,
         current_depth: current_depth,
@@ -86,6 +116,7 @@ defmodule MerkleTree do
     nodes |> Enum.at(current_depth + 1) |> Enum.at(current_index * 2)
   end
 
+  @doc "Gets the value of the right child of the current node."
   def get_right_node(%MerkleTree{
         nodes: nodes,
         current_depth: current_depth,
@@ -94,6 +125,7 @@ defmodule MerkleTree do
     nodes |> Enum.at(current_depth + 1) |> Enum.at(current_index * 2 + 1)
   end
 
+  @doc "Checks if the current node is a leaf node."
   def is_leaf(%MerkleTree{
         current_depth: current_depth,
         max_depth: max
@@ -101,6 +133,7 @@ defmodule MerkleTree do
     current_depth == max
   end
 
+  @doc "Checks if the right child node exists in the tree structure."
   def right_exists(%MerkleTree{
         nodes: nodes,
         current_depth: current_depth,
@@ -110,14 +143,24 @@ defmodule MerkleTree do
   end
 
   @doc """
-  The point of populating this Merkle tree is to calculate the root. Each loop iteration processes one node until the root is calculated
-  hashes = For leaf nodes, we are always given the hash
+  Populates the Merkle tree structure using flags and hashes from a MerkleBlock.
 
+  This function drives the `parse_step` function recursively until the root is
+  calculated and all flags/hashes are consumed.
+
+  ## Parameters
+    - tree: An empty `MerkleTree` structure created with `new/1`.
+    - flag_bits_binary: The binary flag bits from the MerkleBlock.
+    - hashes: The list of hashes from the MerkleBlock.
+
+  ## Returns
+    - `root_hash` if successful.
+    - `{:error, reason}` on failure.
   """
   def populate_tree(%MerkleTree{} = tree, flag_bits, hashes) do
     # We populate until we have the root
     root = root(tree)
-    #
+
     case root do
       :none ->
         {updated_tree, updated_flag_bits, updated_hashes} =
@@ -136,6 +179,12 @@ defmodule MerkleTree do
   end
 
   @doc """
+  Performs one step in the Merkle tree population based on the current state,
+  flags, and hashes.
+
+  This function implements the core logic for navigating the tree according
+  to the SPV proof rules.
+
   flag_bits guide where you need to descend vs. skip.
   hashes provide either leaf values (at the bottom) or pre-computed subtree hashes (where you skip)
   1 = “there’s something interesting in some leaf below → open this node.”
@@ -204,15 +253,20 @@ defmodule MerkleTree do
     end
   end
 
+  @doc """
+  Calculates the Merkle parent of two child hashes.
+  Assumes `CryptoUtils.double_hash256/1` returns a binary.
+  """
   def merkle_parent(hash_l, hash_r) when is_binary(hash_l) and is_binary(hash_r) do
     hash_int = CryptoUtils.double_hash256(hash_l <> hash_r)
     ## if we do :binary.encode_unsigned it strips the leading zeros
     <<hash_int::unsigned-big-integer-size(256)>>
   end
 
-  # Merkle Parent level is calculated parents of each pair
-  # If we have odd number of pairs, we duplicate the last item [A,B,C] -> [A,B,C,C]
+  @doc "Calculates one level up in a full Merkle tree."
   def merkle_parent_level(hashes) when is_list(hashes) and rem(length(hashes), 2) == 0 do
+    # Merkle Parent level is calculated parents of each pair
+    # If we have odd number of pairs, we duplicate the last item [A,B,C] -> [A,B,C,C]
     {nil, result} =
       Enum.reduce(hashes, {nil, []}, fn x, {prev, parents} ->
         if prev != nil do
@@ -231,9 +285,8 @@ defmodule MerkleTree do
     merkle_parent_level(hashes ++ [last])
   end
 
-  def merkle_root(hashes) when length(hashes) == 1 do
-    hashes |> Enum.at(0)
-  end
+  @doc "Calculates the Merkle root for a full list of hashes."
+  def merkle_root([root_hash]), do: root_hash
 
   def merkle_root(hashes) do
     merkle_parent_level(hashes) |> merkle_root()

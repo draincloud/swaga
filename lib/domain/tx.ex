@@ -1,7 +1,15 @@
-require Logger
-
 defmodule Tx do
-  @sighash_all 1
+  @moduledoc """
+  Represents a Bitcoin transaction, including inputs, outputs, and metadata.
+  Provides functions for parsing, serializing, signing, verifying, and computing fees and IDs.
+  """
+  @type t :: %__MODULE__{
+          version: non_neg_integer(),
+          tx_ins: [TxIn.t()],
+          tx_outs: [TxOut.t()],
+          locktime: non_neg_integer(),
+          testnet: boolean()
+        }
 
   @enforce_keys [
     :version,
@@ -16,43 +24,88 @@ defmodule Tx do
     :testnet
   ]
 
+  @sighash_all 1
+
+  @doc """
+  Creates a new Bitcoin transaction.
+
+  ## Parameters
+    - version: Transaction version (integer).
+    - tx_ins: List of transaction inputs (%TxIn{}).
+    - tx_outs: List of transaction outputs (%TxOut{}).
+    - locktime: Locktime (integer).
+    - testnet: Boolean indicating testnet (true) or mainnet (false).
+
+  ## Returns
+    - %Tx{} if valid.
+    - {:error, reason} if invalid.
+  """
   def new(
         version,
         tx_ins,
         tx_outs,
         locktime,
         testnet
-      ) do
-    %Tx{
-      version: version,
-      tx_ins: tx_ins,
-      tx_outs: tx_outs,
-      locktime: locktime,
-      testnet: testnet
-    }
+      )
+      when is_integer(version) and version > 0 and is_list(tx_ins) and is_list(tx_outs) and
+             is_integer(locktime) and locktime >= 0 and
+             is_boolean(testnet) do
+    if Enum.all?(tx_ins, &is_struct(&1, TxIn)) and Enum.all?(tx_outs, &is_struct(&1, TxOut)) do
+      %Tx{
+        version: version,
+        tx_ins: tx_ins,
+        tx_outs: tx_outs,
+        locktime: locktime,
+        testnet: testnet
+      }
+    else
+      {:error, :invalid_inputs_or_outputs}
+    end
   end
 
+  def new(_version, _tx_ins, _tx_outs, _locktime, _testnet), do: {:error, :invalid_input}
+
+  @doc """
+  Returns the command identifier for transactions.
+
+  ## Returns
+    - "tx"
+  """
   def command, do: "tx"
 
-  def read_varint(<<0xFD, rest::binary>>) do
-    <<two_bytes::binary-size(2), rest2::binary>> = rest
-    {MathUtils.little_endian_to_int(two_bytes), rest2}
-  end
+  @doc """
+  Reads a variable-length integer from a binary.
 
-  def read_varint(<<0xFE, rest::binary>>) do
-    <<four_bytes::binary-size(4), rest2::binary>> = rest
-    {MathUtils.little_endian_to_int(four_bytes), rest2}
-  end
+  ## Parameters
+    - binary: Binary containing the varint.
 
-  def read_varint(<<0xFF, rest::binary>>) do
-    <<eight_bytes::binary-size(8), rest2::binary>> = rest
-    {MathUtils.little_endian_to_int(eight_bytes), rest2}
-  end
+  ## Returns
+    - {integer, remaining_binary} if valid.
+    - {:error, reason} if invalid.
+  """
+  def read_varint(<<prefix, rest::binary>>) when prefix < 0xFD, do: {prefix, rest}
 
-  def read_varint(<<prefix, rest::binary>>) do
-    {prefix, rest}
-  end
+  def read_varint(<<0xFD, two_bytes::binary-size(2), rest::binary>>),
+    do: {MathUtils.little_endian_to_int(two_bytes), rest}
 
+  def read_varint(<<0xFE, four_bytes::binary-size(4), rest::binary>>),
+    do: {MathUtils.little_endian_to_int(four_bytes), rest}
+
+  def read_varint(<<0xFF, eight_bytes::binary-size(8), rest::binary>>),
+    do: {MathUtils.little_endian_to_int(eight_bytes), rest}
+
+  def read_varint(_bin), do: {:error, :invalid_varint}
+
+  @doc """
+  Encodes an integer as a variable-length integer.
+
+  ## Parameters
+    - i: Non-negative integer.
+
+  ## Returns
+    - binary() with encoded varint.
+    - {:error, reason} if invalid.
+  """
   def encode_varint(i) when i < 0xFD do
     <<i>>
   end
@@ -69,11 +122,24 @@ defmodule Tx do
     <<0xFF>> <> MathUtils.int_to_little_endian(i, 8)
   end
 
-  def encode_varint(i) when i < 0x10000000000000000 do
-    raise "Integer too large"
+  def encode_varint(_) do
+    {:error, :integer_too_large}
   end
 
-  def parse(serialized_tx, testnet \\ false) when is_binary(serialized_tx) do
+  @doc """
+  Parses a serialized Bitcoin transaction.
+
+  ## Parameters
+    - serialized_tx: Binary in Bitcoin wire format.
+    - testnet: Boolean indicating testnet (default: false).
+
+  ## Returns
+    - %Tx{} if valid.
+    - {:error, reason} if invalid.
+  """
+  def parse(tx, testnet \\ false)
+
+  def parse(serialized_tx, testnet) when is_binary(serialized_tx) do
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
     {num_inputs, tx_rest} = read_varint(rest)
 
@@ -96,27 +162,51 @@ defmodule Tx do
 
     %Tx{
       version: MathUtils.little_endian_to_int(version_bin),
-      tx_ins: inputs,
-      tx_outs: Enum.reverse(outputs),
+      tx_ins: inputs |> Enum.reverse(),
+      tx_outs: outputs |> Enum.reverse(),
       locktime: locktime,
       testnet: testnet
     }
   end
 
-  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
-    input_sum =
-      Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
+  def parse(_tx, _testnet), do: {:error, :invalid_input}
 
-    input_sum - Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
+  @doc """
+  Calculates the transaction fee (input sum minus output sum).
+
+  ## Parameters
+    - tx: Transaction (%Tx{}).
+    - testnet: Boolean for testnet (default: false).
+
+  ## Returns
+    - integer() if valid.
+    - {:error, reason} if invalid.
+  """
+  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
+    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
+    output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
+
+    fee = input_sum - output_sum
+
+    cond do
+      fee < 0 -> {:error, :negative_fee}
+      # We do not wanna process txs without fees for now
+      fee == 0 -> {:error, :empty_fee}
+      fee > 0 -> fee
+    end
   end
 
-  # Checking the signature.
-  # A transaction has at least one signature per input.
-  # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
-  # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
-  #######
-  #  Returns the integer representation of the hash that needs to get
-  #  signed for index input_index
+  @doc """
+  Computes the signature hash (z) for a transaction input.
+
+  ## Parameters
+    - tx: Transaction (%Tx{}).
+    - input_index: Index of the input to sign.
+
+  ## Returns
+    - integer() with the signature hash.
+    - {:error, reason} if invalid.
+  """
   def sig_hash(
         %Tx{
           version: version,
@@ -126,7 +216,14 @@ defmodule Tx do
           locktime: locktime
         },
         input_index
-      ) do
+      )
+      when is_integer(input_index) and input_index >= 0 and input_index < length(inputs) do
+    # Checking the signature.
+    # A transaction has at least one signature per input.
+    # We use op_code OP_CHECKSIG, but the hard part is getting the signature hash to validate it.
+    # That's why we modify the transaction before signing it, we compute a different signature hash for each input.
+    #  Returns the integer representation of the hash that needs to get
+    #  signed for index input_index
     # start the serialization with version
     # use int_to_little_endian in 4 bytes
     signature = MathUtils.int_to_little_endian(version, 4)
@@ -137,7 +234,7 @@ defmodule Tx do
     inputs_signatures =
       inputs
       |> Enum.with_index()
-      |> Enum.reduce("", fn {inp, i}, acc ->
+      |> Enum.map_join(fn {inp, i} ->
         # if the input index is ht one we're signing
         script_pubkey =
           if i == input_index do
@@ -145,13 +242,12 @@ defmodule Tx do
             # otherwise the previous tx's ScriptPubkey is the ScriptSig
             TxIn.script_pubkey(inp, testnet)
           else
-            nil
             # Otherwise, the ScriptSig is nil
+            nil
           end
 
         new_input = TxIn.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence)
-        serialized = TxIn.serialize(new_input)
-        acc <> serialized
+        TxIn.serialize(new_input)
       end)
 
     signature = signature <> inputs_signatures
@@ -168,8 +264,20 @@ defmodule Tx do
     CryptoUtils.double_hash256(signature)
   end
 
-  # Returns whether the input has a valid signature
-  def verify_input(%Tx{tx_ins: inputs, testnet: testnet} = tx, input_index) do
+  @doc """
+  Verifies the signature of a single input within a transaction.
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+    - input_index: The index of the input to verify.
+
+  ## Returns
+    - `true` if the signature is valid.
+    - `false` otherwise.
+  """
+  def verify_input(%Tx{tx_ins: inputs, testnet: testnet} = tx, input_index)
+      when is_integer(input_index) and
+             is_list(inputs) and length(inputs) > 0 do
     # Get the relevant input
     input = Enum.at(inputs, input_index)
     # Grab the previous ScriptPubKey
@@ -183,16 +291,38 @@ defmodule Tx do
     Script.evaluate(combined, z)
   end
 
-  def verify(%Tx{tx_ins: inputs} = tx) do
-    if fee(tx) < 0 do
-      false
-    else
-      inputs
-      |> Enum.with_index()
-      |> Enum.all?(fn {_input, i} -> verify_input(tx, i) end)
+  @doc """
+  Verifies the entire transaction by checking its fee and all input signatures.
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+
+  ## Returns
+    - `true` if the transaction is valid.
+    - `false` otherwise.
+  """
+  def verify(%Tx{tx_ins: inputs} = tx) when is_list(inputs) and length(inputs) > 0 do
+    case fee(tx) do
+      {:error, _reason} ->
+        false
+
+      _ ->
+        inputs
+        |> Enum.with_index()
+        |> Enum.all?(fn {_input, i} -> verify_input(tx, i) end)
     end
   end
 
+  @doc """
+  Computes the raw hash of the transaction (used for Tx ID).
+  This involves serializing, double SHA256 hashing, and reversing bytes (little-endian).
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+
+  ## Returns
+    - binary() representing the transaction hash.
+  """
   def hash(%Tx{} = tx) do
     tx
     |> Tx.serialize()
@@ -203,17 +333,36 @@ defmodule Tx do
     |> :binary.list_to_bin()
   end
 
+  @doc """
+  Computes the human-readable transaction ID (hex-encoded, little-endian hash).
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+
+  ## Returns
+    - String with the lowercase hex ID.
+  """
   def id(%Tx{} = tx) do
     tx |> hash |> Base.encode16(case: :lower)
   end
 
-  # Returns the byte serialization of the transaction
+  @doc """
+  Returns the byte serialization of the transaction in Bitcoin wire format.
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+
+  ## Returns
+    - binary() with the serialized transaction.
+  """
   def serialize(%Tx{
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
         locktime: locktime
-      }) do
+      })
+      when is_integer(version) and is_list(tx_ins) and length(tx_ins) > 0 and is_list(tx_outs) and
+             length(tx_outs) > 0 and is_integer(locktime) do
     # Serialize version
     result = MathUtils.int_to_little_endian(version, 4)
     # Encode varint on the number of inputs
@@ -221,23 +370,36 @@ defmodule Tx do
 
     # Serialize each input
     serialized_inputs =
-      Enum.reduce(tx_ins, "", fn inp, acc ->
-        acc <> TxIn.serialize(inp)
+      Enum.map_join(tx_ins, fn inp ->
+        TxIn.serialize(inp)
       end)
 
     result = result <> serialized_inputs <> encode_varint(length(tx_outs))
 
     serialized_outputs =
-      Enum.reduce(tx_outs, "", fn out, acc ->
-        serialized_output = TxOut.serialize(out)
-        acc <> serialized_output
+      Enum.map_join(tx_outs, fn out ->
+        TxOut.serialize(out)
       end)
 
-    result = result <> serialized_outputs
-    result <> MathUtils.int_to_little_endian(locktime, 4)
+    result <> serialized_outputs <> MathUtils.int_to_little_endian(locktime, 4)
   end
 
-  def sign_input(%Tx{} = tx, input_index, %PrivateKey{} = private_key) do
+  @doc """
+  Signs a specific input in the transaction using a private key.
+  It calculates the signature hash, signs it, and constructs the
+  ScriptSig (assuming P2PKH for now).
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+    - input_index: The index of the input to sign.
+    - private_key: The %PrivateKey{} to use for signing.
+
+  ## Returns
+    - `{boolean, %Tx{}}` where the boolean indicates if verification passed,
+      and the %Tx{} is the updated transaction with the new ScriptSig.
+  """
+  def sign_input(%Tx{} = tx, input_index, %PrivateKey{} = private_key)
+      when is_integer(input_index) do
     # Sign the first input
     z = sig_hash(tx, input_index)
     der = PrivateKey.sign(private_key, z) |> Signature.der()
@@ -248,26 +410,54 @@ defmodule Tx do
     script_sig = Script.new([sig, sec])
 
     updated_inputs =
-      List.replace_at(tx.tx_ins, input_index, %TxIn{
-        Enum.at(tx.tx_ins, input_index)
-        | script_sig: script_sig
-      })
+      Enum.with_index(tx.tx_ins)
+      |> Enum.map(fn {input, i} ->
+        if i == input_index do
+          %TxIn{input | script_sig: script_sig}
+        else
+          input
+        end
+      end)
 
     updated = %Tx{tx | tx_ins: updated_inputs}
     {verify_input(updated, input_index), updated}
   end
 
-  def is_coinbase(%Tx{tx_ins: inputs}) when length(inputs) == 1 do
+  @doc """
+  Checks if the transaction is a coinbase transaction.
+  A coinbase transaction is the first transaction in a block, created by miners.
+  It has exactly one input, and that input has specific characteristics.
+
+  ## Parameters
+    - tx: The transaction (%Tx{}).
+
+  ## Returns
+    - `true` if it's a coinbase transaction.
+    - `false` otherwise.
+  """
+  def is_coinbase(%Tx{tx_ins: inputs}) when is_list(inputs) and length(inputs) == 1 do
     [only_input] = inputs
     TxIn.is_coinbase(only_input)
   end
 
+  # Any transaction not having exactly one input cannot be a coinbase.
   def is_coinbase(%Tx{}) do
     false
   end
 
-  # According to BIP0034, scriptSig first element is height in coinbase tx
-  def coinbase_height(%Tx{tx_ins: inputs} = tx) do
+  @doc """
+  Extracts the block height from a coinbase transaction's ScriptSig.
+  According to BIP0034, the first element pushed in a coinbase ScriptSig
+  must be the block height, encoded as a Script NOP (push number).
+
+  ## Parameters
+    - tx: The coinbase transaction (%Tx{}).
+
+  ## Returns
+    - integer() (block height) if it's a valid coinbase.
+    - `nil` otherwise.
+  """
+  def coinbase_height(%Tx{tx_ins: inputs} = tx) when is_list(inputs) and length(inputs) > 0 do
     if is_coinbase(tx) do
       [only_input] = inputs
       [coin_base_height | _] = only_input.script_sig.cmds

@@ -6,7 +6,12 @@ defmodule Script do
     :cmds
   ]
 
-  def add(%{cmds: cmds}, %{cmds: cmds_other}) when is_list(cmds) and is_list(cmds_other) do
+  @type t :: %__MODULE__{
+          cmds: [binary()]
+        }
+
+  def add(%Script{cmds: cmds}, %Script{cmds: cmds_other})
+      when is_list(cmds) and is_list(cmds_other) do
     %Script{cmds: cmds ++ cmds_other}
   end
 
@@ -14,26 +19,30 @@ defmodule Script do
     %Script{cmds: cmds}
   end
 
-  def new() do
-    %Script{cmds: []}
-  end
+  def new(), do: %Script{cmds: []}
 
   def parse(s) when is_binary(s) do
     {length, rest} = Tx.read_varint(s)
     cmds = []
     count = 0
-    {rest_bin, parsed_cmds} = parse_script_commands(rest, cmds, count, length)
-    {rest_bin, %Script{cmds: parsed_cmds}}
+
+    case parse_script_commands(rest, cmds, count, length) do
+      {:errro, reason} ->
+        {:error, reason}
+
+      {rest_bin, parsed_cmds} ->
+        {rest_bin, %Script{cmds: parsed_cmds |> Enum.reverse()}}
+    end
   end
 
   def parse(_) do
-    raise "Type error s is not binary"
+    {:error, :invalid_input_type}
   end
 
   def parse_script_commands(<<current_byte, rest::binary>>, cmds, count, length)
       when count < length and current_byte >= 1 and current_byte <= 75 do
     <<cmd::binary-size(current_byte), rest_cmds::binary>> = rest
-    parse_script_commands(rest_cmds, cmds ++ [cmd], count + 1 + current_byte, length)
+    parse_script_commands(rest_cmds, [cmd | cmds], count + 1 + current_byte, length)
   end
 
   def parse_script_commands(<<76, rest::binary>>, cmds, count, length)
@@ -41,33 +50,32 @@ defmodule Script do
     <<first, rest2::binary>> = rest
     data_length = MathUtils.little_endian_to_int(<<first>>)
     <<cmd::binary-size(data_length), rest3::binary>> = rest2
-    parse_script_commands(rest3, cmds ++ [cmd], count + data_length + 2, length)
+    parse_script_commands(rest3, [cmd | cmds], count + data_length + 2, length)
   end
 
   def parse_script_commands(<<77, rest::binary>>, cmds, count, length)
       when count < length do
-    count = count + 1
     <<first_two::binary-size(2), rest2::binary>> = rest
     data_length = MathUtils.little_endian_to_int(first_two)
     <<cmd::binary-size(data_length), rest3::binary>> = rest2
-    parse_script_commands(rest3, cmds ++ [cmd], count + data_length + 3, length)
+    parse_script_commands(rest3, [cmd | cmds], count + 1 + data_length + 3, length)
   end
 
   def parse_script_commands(<<op_code, rest::binary>>, cmds, count, length)
       when count < length and is_list(cmds) do
-    parse_script_commands(rest, cmds ++ [op_code], count + 1, length)
+    parse_script_commands(rest, [op_code | cmds], count + 1, length)
   end
 
   def parse_script_commands(s, cmds, count, length) when count >= length do
     if count != length do
-      raise "Script parsing failed: mismatched length (expected #{length}, got #{count})"
+      {:error, "Script parsing failed: mismatched length (expected #{length}, got #{count})"}
     end
 
     {s, cmds}
   end
 
   def parse_script_commands(_s, cmds, _count, _length) when not is_list(cmds) do
-    raise "Cmds must be a list, received #{inspect(cmds)}"
+    {:error, "Cmds must be a list, received #{inspect(cmds)}"}
   end
 
   def preprocess_command(cmd, acc) do
@@ -82,7 +90,7 @@ defmodule Script do
         serialize_script_cmd(cmd, acc)
 
       true ->
-        raise "Unsupported command: #{inspect(cmd)}"
+        {:error, "Unsupported command: #{inspect(cmd)}"}
     end
   end
 
@@ -108,9 +116,8 @@ defmodule Script do
   end
 
   def serialize(%Script{} = script) do
-    result = raw_serialize(script)
-    total = result |> :binary.bin_to_list() |> length
-    Tx.encode_varint(total) <> result
+    serialized_script = raw_serialize(script)
+    Tx.encode_varint(byte_size(serialized_script)) <> serialized_script
   end
 
   def raw_serialize(%{cmds: cmds}) do
@@ -164,16 +171,7 @@ defmodule Script do
             # 0xa9 -> OP_HASH160, 0x87 -> OP_EQUAL
             if cmd == 0xA9 and is_binary(cmd1) and
                  length(cmd1) == 20 and cmd2 == 0x87 do
-              # Execute the next three opcodes
-              # We're checking that the next three commands conform to the BIP0016
-              [_, h160, _ | cmds] = Enum.reverse(rest_cmds)
-              {:ok, updated_stack} = VM.op_hash160(new_stack)
-              new_stack = updated_stack ++ [h160]
-              {:ok, updated_stack} = VM.op_equal(new_stack)
-              {:ok, updated_stack} = VM.op_verify(updated_stack)
-              redeem_script = Tx.encode_varint(length(cmd)) <> cmd
-              {_, script} = Script.parse(redeem_script)
-              rest_cmds = cmds ++ script.cmds
+              {rest_cmds, updated_stack} = VM.Script.P2SH.execute(cmd, rest_cmds, stack)
               iter_over_cmds(rest_cmds, updated_stack, alt_stack, z)
             else
               iter_over_cmds(rest_cmds, new_stack, alt_stack, z)

@@ -2,7 +2,7 @@ require Logger
 
 defmodule SocketTest do
   use ExUnit.Case
-  @moduletag :network
+  @moduletag :skip
   # This test might fail due to rate-limit
   test "connect tcp and receive data" do
     # We have to use charlist because of OTP

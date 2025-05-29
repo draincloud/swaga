@@ -1,25 +1,13 @@
-defmodule BitcoinNode do
-  @moduledoc """
-  Represents a connection to a Bitcoin node.
+require Logger
 
-  This module handles establishing a TCP connection, sending/receiving
-  Bitcoin network messages (wrapped in `NetworkEnvelope`), and performing
-  the initial handshake. It aims to provide a basic interface for
-  interacting with the Bitcoin peer-to-peer network.
-  """
-  require Logger
-  # Define the structure for holding node connection state.
-  @type t :: %__MODULE__{
-          host: charlist(),
-          port: non_neg_integer(),
-          testnet: boolean(),
-          # Depending on your Socket implementation
-          socket: :inet.socket()
-        }
+defmodule BitcoinNode do
+  require IEx
+
   @enforce_keys [
     :host,
     :port,
     :testnet,
+    :logging,
     :socket
   ]
 
@@ -27,67 +15,36 @@ defmodule BitcoinNode do
     :host,
     :port,
     :testnet,
+    :logging,
     :socket
   ]
 
-  @doc """
-  Creates a new BitcoinNode and attempts to establish a connection.
-
-  Defaults to a public node if `host` is not provided.
-  Resolves the port based on the network (mainnet/testnet) if not provided.
-
-  ## Returns
-    - `%BitcoinNode{}` if the connection is successful.
-    - `{:error, reason}` if the connection fails.
-  """
   def new(
         host \\ ~c"bitcoin-rpc.publicnode.com",
         port \\ nil,
-        testnet \\ false
-      )
-      when is_list(host) do
-    resolved_port = resolve_port(port, testnet)
+        testnet \\ false,
+        logging \\ false
+      ) do
+    {:ok, socket} = Socket.start_link(host, port)
 
-    case Socket.start_link(host, resolved_port) do
-      {:ok, socket} ->
-        Logger.info("Connection successful.")
+    resolved_port =
+      cond do
+        port != nil -> port
+        testnet -> 18333
+        true -> 8333
+      end
 
-        node = %BitcoinNode{
-          host: host,
-          port: resolved_port,
-          testnet: testnet,
-          socket: socket
-        }
-
-        node
-
-      {:error, reason} ->
-        Logger.error("Connection failed: #{inspect(reason)}")
-        {:error, {:socket_start_failed, reason}}
-    end
+    %BitcoinNode{
+      host: host,
+      port: resolved_port,
+      testnet: testnet,
+      logging: logging,
+      socket: socket
+    }
   end
 
-  defp resolve_port(port, _testnet) when is_integer(port), do: port
-  defp resolve_port(nil, true), do: 18_333
-  defp resolve_port(nil, false), do: 8_333
-
-  @doc """
-  Sends a structured message to the connected Bitcoin node.
-
-  It serializes the message, wraps it in a `NetworkEnvelope`, and sends it
-  over the socket.
-
-  ## Parameters
-    - node: The `BitcoinNode` instance.
-    - msg: The message structure to send (e.g., `%VersionMessage{}`).
-    - module: The module responsible for serializing `msg` and providing the command.
-    - command: Optional override for the network command string.
-
-  ## Returns
-    - `:ok` if successful.
-    - `{:error, reason}` on failure.
-  """
-  def send(%BitcoinNode{socket: socket}, msg, module, command \\ nil)
+  # Sends message, must implement the interface
+  def send(%BitcoinNode{socket: socket, testnet: false}, msg, module, command \\ nil)
       when is_atom(module) do
     serialized_message = module.serialize(msg)
 
@@ -98,113 +55,82 @@ defmodule BitcoinNode do
         command
       end
 
+    #    IEx.pry()
+
     envelope = NetworkEnvelope.new(network_command, serialized_message)
+    #    IEx.pry()
     Logger.debug("Sending #{inspect(envelope)}")
 
     Logger.debug("Sending #{inspect(NetworkEnvelope.serialize(envelope) |> Base.encode16())}")
 
     case Socket.send(socket, NetworkEnvelope.serialize(envelope)) do
       :ok -> {:ok}
-      {:error, error} -> {:error, "Error sending request #{error}"}
+      {:error, error} -> raise "Error sending request #{error}"
     end
   end
 
-  @doc """
-  Reads and parses a single `NetworkEnvelope` from the socket.
-
-  It handles TCP stream buffering, reading data until a complete message
-  can be parsed.
-
-  ## Parameters
-    - node: The `BitcoinNode` instance.
-    - buffer: Internal buffer for partial messages (defaults to `<<>>`).
-    - timeout: Socket receive timeout in milliseconds.
-
-  ## Returns
-    - `{:ok, %NetworkEnvelope{}, binary()}`: Parsed envelope and any remaining data.
-    - `{:error, reason}` on failure.
-  """
   def read(
-        %BitcoinNode{socket: socket} = node,
-        buffer \\ <<>>,
-        timeout \\ 10_000
+        %BitcoinNode{socket: socket, testnet: _testnet} = node,
+        prev_bin \\ "",
+        do_parse \\ true,
+        bytes \\ 0,
+        timeout \\ 10000
       ) do
-    Logger.debug("Buffer -> #{inspect(buffer)}")
+    case Socket.recv(socket, bytes, timeout) do
+      {:error, error} ->
+        raise "Error reading from socket, #{inspect(error)}"
 
-    case NetworkEnvelope.parse(buffer) do
-      {:ok, network, <<>>} ->
-        {:ok, network}
+      {:ok, data} ->
+        #        Logger.debug("Data from socket #{inspect(:binary.bin_to_list(data))}")
 
-      {:ok, network, rest_binary} ->
-        {:ok, network, rest_binary}
+        if do_parse do
+          case NetworkEnvelope.parse(prev_bin <> data) do
+            # If we get an error, we read again
+            {:missing_payload_size, errored_data} ->
+              read(node, errored_data)
 
-      {:error, _} ->
-        case Socket.recv(socket, 0, timeout) do
-          {:ok, <<>>} ->
-            {:error, :socket_empty_data}
-
-          {:ok, data} ->
-            read(node, buffer <> data, timeout)
-
-          {:error, error} ->
-            {:error, error}
-        end
-    end
-  end
-
-  @doc """
-  Waits for a specific command message from the node.
-
-  It continuously reads messages using `read/3` until a message with
-  the `required_command` is found.
-
-  ## Parameters
-    - node: The `BitcoinNode` instance.
-    - required_command: The command string (e.g., `"verack"`) to wait for.
-    - buffer: Internal buffer (defaults to `<<>>`).
-    - timeout: Timeout per read attempt.
-
-  ## Returns
-    - `{:ok, %NetworkEnvelope{}, binary()}`: The found envelope and any remaining data.
-    - `{:error, reason}` on failure.
-  """
-  def wait_for(node, required_command, buffer \\ <<>>) do
-    case read(node, buffer) do
-      {:ok, envelope, rest_bin} ->
-        Logger.debug("Received #{envelope.command}, waiting for #{required_command}...")
-
-        if envelope.command == required_command do
-          {:ok, envelope, rest_bin}
+            # If it's correctly parsed, then we return it
+            network ->
+              Logger.debug("Parsed data #{inspect(network)}")
+              network
+          end
         else
-          wait_for(node, required_command, rest_bin)
+          data
         end
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
-  @doc """
-  Performs the Bitcoin P2P handshake.
+  # Maybe remove parsed_envelopes now
+  def wait_for(node, parsed_envelopes, required_command, prev_bin \\ "", timeout \\ 10000) do
+    {network, rest_bin} = read(node, prev_bin, true, 0, timeout)
+    parsed = parsed_envelopes ++ [network]
 
-  Sends a `VersionMessage`, waits for the peer's `VersionMessage`, sends
-  a `VerAckMessage`, and waits for the peer's `VerAckMessage`.
+    case Enum.find(parsed, fn env -> env.command == required_command end) do
+      nil ->
+        wait_for(node, parsed, required_command, rest_bin, timeout)
 
-  ## Parameters
-    - node: The `BitcoinNode` instance.
+      envelope ->
+        Logger.debug("Parsed envelopes #{inspect(parsed)}")
+        Logger.debug("rest_bin #{inspect(rest_bin)}")
 
-  ## Returns
-    - `:ok` if successful.
-    - `{:error, reason}` on failure.
-  """
-  def handshake(%BitcoinNode{} = node) do
-    with {:ok} <- send(node, VersionMessage.new(), VersionMessage),
-         {:ok, _version_msg, rest1} <- wait_for(node, VersionMessage.command()),
-         {:ok} <- send(node, VerAckMessage.new(), VerAckMessage) do
-      #         {:ok, _verack_msg, <<>>} <- wait_for(node, VerAckMessage.command(), rest1)
-      {:ok}
-    else
-      {:error, reason} -> {:error, {:handshake_failed, reason}}
+        if rest_bin != <<>> do
+          rest_parsed = NetworkEnvelope.parse(rest_bin)
+          Logger.debug("Parsed from rest_bin #{inspect(rest_parsed)}")
+        else
+          envelope
+        end
     end
+  end
+
+  # Do a handshake with the other node
+  # Handshake is sending a version message and getting a VerAck back
+  def handshake(%BitcoinNode{} = node) do
+    {:ok} = send(node, VersionMessage.new(), VersionMessage)
+    # So we're reading version and verack message from the node
+    #    command = wait_for(node, [], VersionMessage.command())
+    # match with verack command, payload must be empty and rest_bin as well
+    _command = wait_for(node, [], VersionMessage.command())
+    {:ok} = send(node, VerAckMessage.new(), VerAckMessage)
+    :ok
   end
 end

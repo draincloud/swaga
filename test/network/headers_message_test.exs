@@ -2,13 +2,13 @@ require Logger
 
 defmodule HeadersMessageTest do
   use ExUnit.Case
-  @moduletag :network
+  @moduletag :skip
   test "download the headers, check their proof-of-work and validate the block header difficulty" do
     genesis_block = Block.parse(Block.genesis())
     genesis_hash = Block.hash(genesis_block)
     expected_bits = Block.lowest_bits()
     node = BitcoinNode.new(~c"ns343680.ip-94-23-21.eu", 8333)
-    {:ok} = BitcoinNode.handshake(node)
+    :ok = BitcoinNode.handshake(node)
 
     get_headers = GetHeadersMessage.new(genesis_hash)
 

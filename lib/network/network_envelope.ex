@@ -64,7 +64,7 @@ defmodule NetworkEnvelope do
   def parse(serialized_network, testnet \\ false)
 
   def parse("", _) do
-    {:error, "Serialized envelope is empty, try retrying"}
+    raise "Serialized envelope is empty, try retrying"
   end
 
   def parse(serialized_network, testnet) when is_binary(serialized_network) do
@@ -78,44 +78,44 @@ defmodule NetworkEnvelope do
     <<network_magic::binary-size(4), command::binary-size(12), payload_length::binary-size(4),
       payload_checksum::binary-size(4), payload::binary>> = serialized_network
 
-    case check_network_magic(expected_magic, network_magic) do
+    :ok =
+      case check_network_magic(expected_magic, network_magic) do
+        :ok ->
+          :ok
+
+        :error ->
+          raise "Magic is not right for expected #{inspect(expected_magic)}, got #{inspect(network_magic)}}"
+      end
+
+    payload_size = payload_length |> MathUtils.little_endian_to_int()
+
+    case check_payload_size(payload_size, payload) do
       :ok ->
-        payload_size = payload_length |> MathUtils.little_endian_to_int()
+        <<payload_to_read::binary-size(payload_size), rest::binary>> =
+          payload
 
-        case check_payload_size(payload_size, payload) do
-          :ok ->
-            <<payload_to_read::binary-size(payload_size), _::binary>> =
-              payload
+        <<first4bytes::binary-size(4), _::binary>> =
+          CryptoUtils.double_hash256(payload_to_read)
+          |> :binary.encode_unsigned(:big)
+          |> Helpers.pad_binary(32)
 
-            <<first4bytes::binary-size(4), rest::binary>> =
-              CryptoUtils.double_hash256(payload_to_read)
-              |> :binary.encode_unsigned(:big)
-              |> Helpers.pad_binary(32)
+        :ok =
+          case check_hash_sum(payload_checksum, first4bytes) do
+            :ok ->
+              :ok
 
-            :ok =
-              case check_hash_sum(payload_checksum, first4bytes) do
-                :ok ->
-                  :ok
+            :error ->
+              raise "Checksum is not equal to first 4 bytes of hash, expected(#{inspect(payload_checksum)}), received #{inspect(first4bytes)}"
+          end
 
-                :error ->
-                  {:error,
-                   "Checksum is not equal to first 4 bytes of hash, expected(#{inspect(payload_checksum)}), received #{inspect(first4bytes)}"}
-              end
+        {%NetworkEnvelope{
+           command: String.trim(command) |> String.trim("\0"),
+           payload: payload_to_read,
+           magic: network_magic
+         }, rest}
 
-            {:ok,
-             %NetworkEnvelope{
-               command: String.trim(command) |> String.trim("\0"),
-               payload: payload_to_read,
-               magic: network_magic
-             }, rest}
-
-          :incorrect_payload_size ->
-            {:error, serialized_network}
-        end
-
-      :error ->
-        {:error,
-         "Magic is not right for expected #{inspect(expected_magic)}, got #{inspect(network_magic)}}"}
+      :incorrect_payload_size ->
+        {:missing_payload_size, serialized_network}
     end
   end
 

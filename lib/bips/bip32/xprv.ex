@@ -108,8 +108,8 @@ defmodule BIP32.Xprv do
   @doc """
   Derives an extended private key from a path
   """
-  def derive(xprv, path) when is_binary(path) do
-    indices = BIP32.DerivationPath.parse(path)
+  def derive(xprv, path, module \\ BIP32.DerivationPath) when is_binary(path) do
+    indices = module.parse(path)
 
     Enum.reduce(indices, xprv, fn i, child_xprv ->
       ckd_priv(child_xprv, i)

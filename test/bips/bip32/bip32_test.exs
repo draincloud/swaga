@@ -1,7 +1,4 @@
-require Logger
-
 defmodule BIP32.Test do
-  require IEx
   use ExUnit.Case
   @seed "000102030405060708090a0b0c0d0e0f"
 

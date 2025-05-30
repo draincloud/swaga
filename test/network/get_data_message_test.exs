@@ -41,8 +41,6 @@ defmodule GetDataMessageTest do
       "00000000000000000000646bf8e642b975087e4520b54544b83c316a7af1ce67"
       |> Base.decode16!(case: :lower)
 
-    #    IEx.pry()
-
     address = "1NyLs3xAfq913ugwaZpZ8ygVZoXDSJ7JrN"
     h160 = Base58.decode(address)
     node = BitcoinNode.new(~c"ns343680.ip-94-23-21.eu", 8333)

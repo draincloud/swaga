@@ -55,10 +55,7 @@ defmodule BitcoinNode do
         command
       end
 
-    #    IEx.pry()
-
     envelope = NetworkEnvelope.new(network_command, serialized_message)
-    #    IEx.pry()
     Logger.debug("Sending #{inspect(envelope)}")
 
     Logger.debug("Sending #{inspect(NetworkEnvelope.serialize(envelope) |> Base.encode16())}")

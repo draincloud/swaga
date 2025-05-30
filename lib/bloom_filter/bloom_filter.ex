@@ -1,7 +1,6 @@
 require Logger
 
 defmodule BloomFilter do
-  require IEx
   import Bitwise
 
   # since erlang/elixir integers are variable-length we have to guarantee them
@@ -52,8 +51,6 @@ defmodule BloomFilter do
         seed = (x * @bip37 + tweak) |> mask_32
         # get murmur
         h = Murmur.hash_x86_32(item, seed)
-        # iex -S mix test --trace test/bloom_filter/bloom_filter_test.exs
-        # IEx.pry()
         bit = h |> rem(size * 8)
         List.replace_at(acc, bit, 1)
       end)

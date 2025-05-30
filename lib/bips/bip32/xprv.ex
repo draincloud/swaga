@@ -9,7 +9,6 @@ defmodule BIP32.Xprv do
   Child derivation differs for hardened vs non-hardened keys:
   If i >= 2³¹, it's a hardened child
   """
-  require IEx
   @mainnet_xprv_version 0x0488ADE4
   @enforce_keys [
     :encoded_xprv,
@@ -100,8 +99,6 @@ defmodule BIP32.Xprv do
     <<checksum::binary-size(4), _::binary>> =
       concat_bin |> CryptoUtils.hash256() |> CryptoUtils.hash256()
 
-    #    IEx.pry()
-
     (concat_bin <> checksum) |> Base58.encode_from_binary()
   end
 
@@ -123,7 +120,7 @@ defmodule BIP32.Xprv do
 
   # non-hardened, 0x80000000 is a threshold for hardened
   def ckd_priv(%{private_key: private_key, chain_code: chain_code} = xprv, index)
-      when is_integer(index) and index > 0 and index < 0x80000000 do
+      when is_integer(index) and index >= 0 and index < 0x80000000 do
     g = Secp256Point.get_g()
     pubkey_point = Secp256Point.mul(g, private_key)
     parent_pubkey = Secp256Point.compressed_sec(pubkey_point)

@@ -35,7 +35,6 @@ defmodule GetHeadersMessage do
     start_block = Helpers.reverse_binary(start_block) |> Helpers.pad_binary(32)
     end_block = Helpers.reverse_binary(end_block) |> Helpers.pad_binary(32)
     header_version <> header_num_hashes <> start_block <> end_block
-    #    IEx.pry()
   end
 
   def parse(serialized) when is_binary(serialized) do

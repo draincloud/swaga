@@ -3,6 +3,7 @@ defmodule Sdk.Wallet do
   @enforce_keys [:seed, :xprv]
   defstruct [:seed, :xprv, :xpub]
   alias BIP32.Seed
+  alias Bech32
 
   @type t :: %__MODULE__{
           seed: binary()
@@ -74,19 +75,36 @@ defmodule Sdk.Wallet do
   def generate_address(%__MODULE__{xpub: xpub}, opts \\ []) do
     h160 = CryptoUtils.hash160(xpub.public_key)
 
-    is_testnet = Keyword.get(opts, :testnet, false)
+    network = Keyword.get(opts, :network, :mainnet)
     type = Keyword.get(opts, :type, :base58)
 
-    prefix =
-      if is_testnet do
-        <<0x6F>>
-      else
-        <<0x00>>
+    {prefix, hrp} =
+      case network do
+        :mainnet ->
+          {<<0x00>>, "bc"}
+
+        :testnet ->
+          {<<0x6F>>, "tb"}
+
+        _ ->
+          {:error, "Invalid network"}
       end
 
     case type do
       :base58 ->
         Base58.encode_base58_checksum(prefix <> h160)
+
+      :bech32 ->
+        case Bech32.convert_bits(:binary.bin_to_list(h160), 8, 5, true) do
+          {:ok, five_bit_groups} ->
+            # Now call encode with the list of 5-bit integers
+            # Pass :bech32 as encoding_type
+            Bech32.encode(hrp, five_bit_groups, :bech32)
+
+          {:error, reason} ->
+            Logger.error("Failed to convert bits for Bech32 encoding: #{inspect(reason)}")
+            {:error, {:bit_conversion_failed, reason}}
+        end
 
       _ ->
         {:error, "Type not supported #{type}"}

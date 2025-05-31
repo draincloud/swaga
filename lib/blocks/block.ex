@@ -104,9 +104,9 @@ defmodule Block do
       when is_binary(root) and byte_size(root) == 32 and is_list(tx_hashes) and tx_hashes != [] do
     # we need to reverse hashes because of little-endian
     calculated_root =
-      tx_hashes |> Enum.map(&Helpers.reverse_binary/1) |> MerkleTree.merkle_root()
+      tx_hashes |> Enum.map(&Binary.Common.reverse_binary/1) |> MerkleTree.merkle_root()
 
-    Helpers.reverse_binary(root) == calculated_root
+    Binary.Common.reverse_binary(root) == calculated_root
   end
 
   def validate_merkle_root(_), do: false
@@ -131,8 +131,8 @@ defmodule Block do
              is_binary(nonce) and byte_size(nonce) == 4 do
     encoded_version = MathUtils.int_to_little_endian(version, 4)
     # Reverse, because we store it as little-endian
-    encoded_prev_block = Helpers.reverse_binary(prev_block)
-    merkle_root = Helpers.reverse_binary(merkle_root)
+    encoded_prev_block = Binary.Common.reverse_binary(prev_block)
+    merkle_root = Binary.Common.reverse_binary(merkle_root)
     timestamp = MathUtils.int_to_little_endian(timestamp, 4)
 
     encoded_version <> encoded_prev_block <> merkle_root <> timestamp <> bits <> nonce
@@ -152,8 +152,8 @@ defmodule Block do
 
     new(
       MathUtils.little_endian_to_int(version),
-      Helpers.reverse_binary(prev_block),
-      Helpers.reverse_binary(merkle_root),
+      Binary.Common.reverse_binary(prev_block),
+      Binary.Common.reverse_binary(merkle_root),
       MathUtils.little_endian_to_int(timestamp),
       bits,
       nonce
@@ -173,8 +173,8 @@ defmodule Block do
       serialize(block)
       |> CryptoUtils.double_hash256()
       |> :binary.encode_unsigned()
-      |> Helpers.pad_binary(32)
-      |> Helpers.reverse_binary()
+      |> Binary.Common.pad_binary(32)
+      |> Binary.Common.reverse_binary()
 
     32 = byte_size(hash)
     hash
@@ -230,7 +230,7 @@ defmodule Block do
     # encode and get rid of leading 0's
     <<first_byte, _::binary>> =
       tx =
-      :binary.encode_unsigned(target, :big) |> Helpers.remove_leading_zeros()
+      :binary.encode_unsigned(target, :big) |> Binary.Common.remove_leading_zeros()
 
     # if the first bit is 1, we have to start with 00
     {coefficient, exponent} =
@@ -247,7 +247,7 @@ defmodule Block do
       end
 
     # we've truncated the number after the first 3 digits of base-256
-    Helpers.reverse_binary(coefficient) <> <<exponent>>
+    Binary.Common.reverse_binary(coefficient) <> <<exponent>>
   end
 
   @doc """
@@ -267,7 +267,7 @@ defmodule Block do
     - true if the hash is below the target, false otherwise.
   """
   def check_pow(%Block{bits: bits} = block) do
-    proof = block |> hash |> Helpers.reverse_binary() |> MathUtils.little_endian_to_int()
+    proof = block |> hash |> Binary.Common.reverse_binary() |> MathUtils.little_endian_to_int()
     bits_to_target(bits) > proof
   end
 

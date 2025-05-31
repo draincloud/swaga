@@ -107,7 +107,7 @@ defmodule MerkleBlock do
     {parsed_hashes, _} =
       Enum.reduce(1..hashes_count, {[], hashes}, fn _, {acc, bin} ->
         <<hash::binary-size(32), rest::binary>> = bin
-        {acc ++ [hash |> Helpers.reverse_binary()], rest}
+        {acc ++ [hash |> Binary.Common.reverse_binary()], rest}
       end)
 
     {flags_count, bin_flags} = Tx.read_varint(flag_bytes)
@@ -116,8 +116,8 @@ defmodule MerkleBlock do
 
     new(
       MathUtils.little_endian_to_int(version),
-      Helpers.reverse_binary(prev_block),
-      Helpers.reverse_binary(merkle_root),
+      Binary.Common.reverse_binary(prev_block),
+      Binary.Common.reverse_binary(merkle_root),
       MathUtils.little_endian_to_int(timestamp),
       bits,
       nonce,

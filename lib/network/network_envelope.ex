@@ -97,7 +97,7 @@ defmodule NetworkEnvelope do
         <<first4bytes::binary-size(4), _::binary>> =
           CryptoUtils.double_hash256(payload_to_read)
           |> :binary.encode_unsigned(:big)
-          |> Helpers.pad_binary(32)
+          |> Binary.Common.pad_binary(32)
 
         :ok =
           case check_hash_sum(payload_checksum, first4bytes) do

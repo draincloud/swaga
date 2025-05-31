@@ -35,7 +35,7 @@ defmodule GetDataMessage do
       Enum.reduce(data, number_of_items, fn {data_type, identifier}, acc ->
         acc <>
           MathUtils.int_to_little_endian(data_type, 4) <>
-          Helpers.reverse_binary(identifier)
+          Binary.Common.reverse_binary(identifier)
       end)
 
     #    Logger.debug("Result 39 #{inspect(acc |> Base.encode16(case: :lower))}")

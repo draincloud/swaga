@@ -1,5 +1,7 @@
 defmodule Sdk.WalletTest do
+  require Logger
   use ExUnit.Case
+  require IEx
   alias Sdk.Wallet
 
   test "mnemonic generate" do
@@ -67,5 +69,26 @@ defmodule Sdk.WalletTest do
       |> Wallet.generate_address()
 
     assert address == "19DQYeqNSEmbK5RQHEffK3zMoVDVRmzTzC"
+  end
+
+  @tag :in_progress
+  test "use wallet and create transaction" do
+    sender =
+      Wallet.from_seed(
+        "be73ca6879a2777cc669312f1bcde0d2e6f1af1272440def35d848f63c25e9b7d03d392633ea5e5c32246e52b00a436a0917039940a75da7e3580caf88a8ad8f"
+      )
+
+    Logger.debug("sender #{inspect(sender.xprv.encoded_xprv)}")
+
+    receiver =
+      Wallet.from_seed(
+        "562c06543d700ced1e2e8c05d04cc2aa32579fc753cb43bb0e03dec40e9ee83f48c8b729507572ab25ef9e6b4736c0d30e6ce5de78df163328e4d70b52cba28a"
+      )
+
+    Logger.debug("receiver #{inspect(receiver.xprv.encoded_xprv)}")
+
+    sender_address = Wallet.generate_address(sender, testnet: true)
+    Logger.debug("receiver #{inspect(sender_address)}")
+    #    IEx.pry()
   end
 end

@@ -32,8 +32,8 @@ defmodule GetHeadersMessage do
       }) do
     header_version = MathUtils.int_to_little_endian(version, 4)
     header_num_hashes = Tx.encode_varint(num_hashes)
-    start_block = Helpers.reverse_binary(start_block) |> Helpers.pad_binary(32)
-    end_block = Helpers.reverse_binary(end_block) |> Helpers.pad_binary(32)
+    start_block = Binary.Common.reverse_binary(start_block) |> Binary.Common.pad_binary(32)
+    end_block = Binary.Common.reverse_binary(end_block) |> Binary.Common.pad_binary(32)
     header_version <> header_num_hashes <> start_block <> end_block
   end
 

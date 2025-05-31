@@ -11,14 +11,14 @@ defmodule MerkleBlockTest do
     expected_merkle_root =
       "ef445fef2ed495c275892206ca533e7411907971013ab83e3b47bd0d692d14d4"
       |> Base.decode16!(case: :lower)
-      |> Helpers.reverse_binary()
+      |> Binary.Common.reverse_binary()
 
     assert merkle_block.merkle_root == expected_merkle_root
 
     expected_prev_block =
       "df3b053dc46f162a9b00c7f0d5124e2676d47bbe7c5d0793a500000000000000"
       |> Base.decode16!(case: :lower)
-      |> Helpers.reverse_binary()
+      |> Binary.Common.reverse_binary()
 
     assert merkle_block.prev_block == expected_prev_block
 
@@ -54,7 +54,9 @@ defmodule MerkleBlockTest do
         "d1ab7953e3430790a9f81e1c67f5b58c825acf46bd02848384eebe9af917274c",
         "dfbb1a28a5d58a23a17977def0de10d644258d9c54f886d47d293a411cb62261"
       ]
-      |> Enum.map(fn hash -> Base.decode16!(hash, case: :lower) |> Helpers.reverse_binary() end)
+      |> Enum.map(fn hash ->
+        Base.decode16!(hash, case: :lower) |> Binary.Common.reverse_binary()
+      end)
 
     assert merkle_block.hashes == expected_hashes
     assert merkle_block.flag_bits == "b55635" |> Base.decode16!(case: :lower)

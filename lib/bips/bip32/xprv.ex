@@ -83,7 +83,7 @@ defmodule BIP32.Xprv do
     # For mainnet
     version_bytes = @mainnet_xprv_version |> :binary.encode_unsigned(:big)
 
-    child_number = child_number |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
+    child_number = child_number |> :binary.encode_unsigned(:big) |> Binary.Common.pad_binary(4)
     # Prefix the 32 byte il to make it 33 bytes
     secret = <<0x00>> <> secret
     # Check for byte_sizes
@@ -92,7 +92,7 @@ defmodule BIP32.Xprv do
     1 = byte_size(depth)
 
     parent_fingerprint =
-      parent_fingerprint |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
+      parent_fingerprint |> :binary.encode_unsigned(:big) |> Binary.Common.pad_binary(4)
 
     4 = byte_size(parent_fingerprint)
     4 = byte_size(child_number)

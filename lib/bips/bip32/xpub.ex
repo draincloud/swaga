@@ -2,7 +2,6 @@ defmodule BIP32.Xpub do
   alias Secp256Point
   alias PrivateKey
   alias Point
-  alias Helpers
 
   @mainnet_xpub_version 0x0488B21E
   @enforce_keys [
@@ -46,9 +45,11 @@ defmodule BIP32.Xpub do
     compressed_pubkey = Secp256Point.compressed_sec(pubkey_point)
 
     parent_fingerprint =
-      parent_fingerprint |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
+      parent_fingerprint
+      |> :binary.encode_unsigned(:big)
+      |> Binary.Common.pad_binary(4)
 
-    child_number = child_number |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
+    child_number = child_number |> :binary.encode_unsigned(:big) |> Binary.Common.pad_binary(4)
 
     xpub = %__MODULE__{
       chain_code: chain_code,
@@ -86,7 +87,7 @@ defmodule BIP32.Xpub do
 
     4 = byte_size(child_number)
 
-    ext_pubkey = compressed_pubkey |> Helpers.pad_binary(33)
+    ext_pubkey = compressed_pubkey |> Binary.Common.pad_binary(33)
     33 = byte_size(ext_pubkey)
 
     concat_bin =
@@ -110,7 +111,7 @@ defmodule BIP32.Xpub do
         index
       )
       when index >= 0 and index < 0x80000000 do
-    index = index |> :binary.encode_unsigned(:big) |> Helpers.pad_binary(4)
+    index = index |> :binary.encode_unsigned(:big) |> Binary.Common.pad_binary(4)
     hmac = :crypto.mac(:hmac, :sha512, parent_chain_code, parent_compressed_sec <> index)
     # il - the master key
     # ir - the master chain code
@@ -140,27 +141,5 @@ defmodule BIP32.Xpub do
       child_pubkey
       | encoded_xpub: encoded_xpub(child_pubkey, child_compressed_pubkey)
     }
-  end
-
-  def address(%BIP32.Xpub{public_key: public_key}, opts \\ []) do
-    h160 = CryptoUtils.hash160(public_key)
-
-    is_testnet = Keyword.get(opts, :testnet, false)
-    type = Keyword.get(opts, :type, :base58)
-
-    prefix =
-      if is_testnet do
-        <<0x6F>>
-      else
-        <<0x00>>
-      end
-
-    case type do
-      :base58 ->
-        Base58.encode_base58_checksum(prefix <> h160)
-
-      _ ->
-        {:error, "Type not supported #{type}"}
-    end
   end
 end

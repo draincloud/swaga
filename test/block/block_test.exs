@@ -140,7 +140,7 @@ defmodule BlockTest do
         )
       )
       |> :binary.encode_unsigned(:big)
-      |> Helpers.reverse_binary()
+      |> Binary.Common.reverse_binary()
 
     assert Base.encode16(block_id, case: :lower) ==
              "0000000000000000007e9e4c586439b0cdbe13b1370bdd9435d76a644d047523"

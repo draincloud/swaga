@@ -1,6 +1,7 @@
-require Logger
-
 defmodule TxIn do
+  require Logger
+  alias Binary.Common
+
   @moduledoc """
   Represents a single input in a Bitcoin transaction.
 
@@ -68,7 +69,7 @@ defmodule TxIn do
       when is_binary(prev_tx) and is_integer(prev_index) and is_struct(script_sig, Script) and
              is_integer(sequence) do
     # Serialize prev_tx, little_endian
-    prev_tx_le = Helpers.reverse_binary(prev_tx)
+    prev_tx_le = Common.reverse_binary(prev_tx)
     # Serialize prev_index, 4 bytes
     prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
     script_sig_bin = Script.serialize(script_sig)
@@ -83,7 +84,7 @@ defmodule TxIn do
   """
   def parse(s) when is_binary(s) do
     <<prev_tx_raw::binary-size(32), rest::binary>> = s
-    prev_tx = Helpers.reverse_binary(prev_tx_raw)
+    prev_tx = Common.reverse_binary(prev_tx_raw)
 
     <<prev_index_raw::binary-size(4), rest2::binary>> = rest
     prev_index = MathUtils.little_endian_to_int(prev_index_raw)

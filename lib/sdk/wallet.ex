@@ -71,8 +71,26 @@ defmodule Sdk.Wallet do
     %{wallet | xpub: derived}
   end
 
-  def generate_address(%__MODULE__{xpub: xpub}, type \\ :base58, testnet \\ false) do
-    BIP32.Xpub.address(xpub, type: type, testnet: testnet)
+  def generate_address(%__MODULE__{xpub: xpub}, opts \\ []) do
+    h160 = CryptoUtils.hash160(xpub.public_key)
+
+    is_testnet = Keyword.get(opts, :testnet, false)
+    type = Keyword.get(opts, :type, :base58)
+
+    prefix =
+      if is_testnet do
+        <<0x6F>>
+      else
+        <<0x00>>
+      end
+
+    case type do
+      :base58 ->
+        Base58.encode_base58_checksum(prefix <> h160)
+
+      _ ->
+        {:error, "Type not supported #{type}"}
+    end
   end
 
   #  def create_transaction(inputs, outputs, fee_rate, change_address) do

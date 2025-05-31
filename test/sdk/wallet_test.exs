@@ -71,7 +71,7 @@ defmodule Sdk.WalletTest do
     assert address == "19DQYeqNSEmbK5RQHEffK3zMoVDVRmzTzC"
   end
 
-  @tag :in_progress
+  #  @tag :in_progress
   test "use wallet and create transaction" do
     sender =
       Wallet.from_seed(

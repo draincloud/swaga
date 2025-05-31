@@ -6,7 +6,7 @@ defmodule Base58Test do
 
   test "base58" do
     to_encode = "7C076FF316692A3D7EB3C3BB0F8B1488CF72E1AFCD929E29307032997A838A3D"
-    #    to_encode = "0001FEFF"
+
     assert "275o5BW2sJT56gnJWj6M5iNxqYxRF9WLQSnKD29Bf4GdVegi5s3UbiVCnZ5M6gtNpyrH2CRSjTmySFT97HJFZF4X" ==
              Base58.encode_from_binary(to_encode)
 
@@ -34,7 +34,6 @@ defmodule Base58Test do
     assert "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh" == Base58.encode_base58_checksum(<<0x05>> <> h160)
   end
 
-  @tag :in_progress
   test "xprv encode version" do
     want = "7irrX"
     input = "0488ADE4" |> Base.decode16!(case: :upper)

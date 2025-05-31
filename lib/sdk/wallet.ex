@@ -3,7 +3,6 @@ defmodule Sdk.Wallet do
   @enforce_keys [:seed, :xprv]
   defstruct [:seed, :xprv, :xpub]
   alias BIP32.Seed
-  alias BIP32.Xprv
 
   @type t :: %__MODULE__{
           seed: binary()
@@ -63,7 +62,8 @@ defmodule Sdk.Wallet do
 
   def derive_private_key(%__MODULE__{xprv: xprv} = wallet, path) do
     derived = BIP32.Xprv.derive(xprv, path)
-    %{wallet | xprv: derived}
+    master_pub = BIP32.Xpub.from_xprv(derived)
+    %{wallet | xprv: derived, xpub: master_pub}
   end
 
   def derive_public_key(%__MODULE__{xpub: xpub} = wallet, index) do
@@ -71,9 +71,14 @@ defmodule Sdk.Wallet do
     %{wallet | xpub: derived}
   end
 
-  #  def generate_address(public_key, type)
+  def generate_address(%__MODULE__{xpub: xpub}, type \\ :base58, testnet \\ false) do
+    BIP32.Xpub.address(xpub, type: type, testnet: testnet)
+  end
+
+  #  def create_transaction(inputs, outputs, fee_rate, change_address) do
+  #  end
+
   #  def get_utxos(address)
-  #  def create_transaction(inputs, outputs, fee_rate, change_address)
   #  def sign_transaction(unsigned_tx, private_keys_for_inputs)
   #  def broadcast_transaction(signed_tx)
 end

@@ -56,4 +56,16 @@ defmodule Sdk.WalletTest do
     assert derived.xpub.encoded_xpub ==
              "xpub699i5FJZk4LBShBF6fp2dpzux483SVoUBhap4HgB814SdbwLpmQocsetjhBURGRiZYTvnN91U2gXkZwEPxQMJLAVdTCMqYNdPGimoC8TD8D"
   end
+
+  test "get address" do
+    seed =
+      "000102030405060708090a0b0c0d0e0f"
+
+    address =
+      Wallet.from_seed(seed)
+      |> Wallet.derive_private_key("m/0/0/0/0")
+      |> Wallet.generate_address()
+
+    assert address == "19DQYeqNSEmbK5RQHEffK3zMoVDVRmzTzC"
+  end
 end

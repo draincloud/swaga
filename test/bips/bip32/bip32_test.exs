@@ -119,4 +119,19 @@ defmodule BIP32.Test do
     assert "xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y" ==
              derived.xpub.encoded_xpub
   end
+
+  test "path m/0/0" do
+    seed =
+      "000102030405060708090a0b0c0d0e0f"
+
+    master_xprv = BIP32.Xprv.new_master(seed)
+
+    derived = BIP32.Xprv.derive(master_xprv, "m/0/0")
+
+    assert "xprv9ww7sMFLzJMzur2oEQDB642fbsMS4q6JRraMVTrM9bTWBq7NDS8ZpmsKVB4YF3mZecqax1fjnsPF19xnsJNfRp4RSyexacULXMKowSACTRc" =
+             derived.encoded_xprv
+
+    assert "xpub6AvUGrnEpfvJ8L7GLRkBTByQ9uBvUHp9o5VxHrFxhvzV4dSWkySpNaBoLR9FpbnwRmTa69yLHF3QfcaxbWT7gWdwws5k4dpmJvqpEuMWwnj" ==
+             derived.xpub.encoded_xpub
+  end
 end

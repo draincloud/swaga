@@ -141,4 +141,26 @@ defmodule BIP32.Xpub do
       | encoded_xpub: encoded_xpub(child_pubkey, child_compressed_pubkey)
     }
   end
+
+  def address(%BIP32.Xpub{public_key: public_key}, opts \\ []) do
+    h160 = CryptoUtils.hash160(public_key)
+
+    is_testnet = Keyword.get(opts, :testnet, false)
+    type = Keyword.get(opts, :type, :base58)
+
+    prefix =
+      if is_testnet do
+        <<0x6F>>
+      else
+        <<0x00>>
+      end
+
+    case type do
+      :base58 ->
+        Base58.encode_base58_checksum(prefix <> h160)
+
+      _ ->
+        {:error, "Type not supported #{type}"}
+    end
+  end
 end

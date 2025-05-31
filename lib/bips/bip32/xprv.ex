@@ -35,8 +35,15 @@ defmodule BIP32.Xprv do
     :parent_fingerprint
   ]
 
-  def new_master(seed) do
-    hmac = :crypto.mac(:hmac, :sha512, "Bitcoin seed", seed)
+  def new_master(seed) when is_binary(seed) do
+    # Convert to hex decode binary, if it's an hex string
+    converted_seed =
+      case Helpers.is_hex_string?(seed) do
+        true -> seed |> Base.decode16!(case: :mixed)
+        false -> seed
+      end
+
+    hmac = :crypto.mac(:hmac, :sha512, "Bitcoin seed", converted_seed)
     # il - the master key
     # ir - the master chain code
     <<il::binary-size(32), ir::binary-size(32)>> = hmac
@@ -105,8 +112,8 @@ defmodule BIP32.Xprv do
   @doc """
   Derives an extended private key from a path
   """
-  def derive(xprv, path, module \\ BIP32.DerivationPath) when is_binary(path) do
-    indices = module.parse(path)
+  def derive(xprv, path) when is_binary(path) do
+    indices = BIP32.DerivationPath.parse(path)
 
     Enum.reduce(indices, xprv, fn i, child_xprv ->
       ckd_priv(child_xprv, i)

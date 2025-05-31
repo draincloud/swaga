@@ -1,4 +1,42 @@
 defmodule Sdk.Wallet do
+  require Logger
+  @enforce_keys [:seed, :xprv]
+  defstruct [:seed, :xprv, :xpub]
+  alias BIP32.Seed
+  alias BIP32.Xprv
+
+  @type t :: %__MODULE__{
+          seed: binary()
+        }
+
+  def from_mnemonic(mnemonic) when is_binary(mnemonic) or is_list(mnemonic) do
+    case Seed.from_mnemonic(mnemonic) do
+      {:ok, seed} ->
+        from_seed(seed)
+
+      {:error, reason} ->
+        Logger.error(reason)
+        {:error, reason}
+    end
+  end
+
+  def from_seed(seed) when is_binary(seed) do
+    master_pk =
+      BIP32.Xprv.new_master(seed)
+
+    master_pub = BIP32.Xpub.from_xprv(master_pk)
+
+    %__MODULE__{
+      seed: seed,
+      xprv: master_pk,
+      xpub: master_pub
+    }
+  end
+
+  def new() do
+    generate_mnemonic() |> from_mnemonic
+  end
+
   def generate_mnemonic() do
     entropy = :crypto.strong_rand_bytes(16)
     <<checksum::size(4), _::bitstring>> = CryptoUtils.hash256(entropy)
@@ -22,4 +60,20 @@ defmodule Sdk.Wallet do
         {:error, reason}
     end
   end
+
+  def derive_private_key(%__MODULE__{xprv: xprv} = wallet, path) do
+    derived = BIP32.Xprv.derive(xprv, path)
+    %{wallet | xprv: derived}
+  end
+
+  def derive_public_key(%__MODULE__{xpub: xpub} = wallet, index) do
+    derived = BIP32.Xpub.derive_child(xpub, index)
+    %{wallet | xpub: derived}
+  end
+
+  #  def generate_address(public_key, type)
+  #  def get_utxos(address)
+  #  def create_transaction(inputs, outputs, fee_rate, change_address)
+  #  def sign_transaction(unsigned_tx, private_keys_for_inputs)
+  #  def broadcast_transaction(signed_tx)
 end

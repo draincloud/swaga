@@ -9,7 +9,6 @@ defmodule Sdk.RpcClientTest do
     assert url != nil
   end
 
-  @tag :in_progress
   test "get raw transaction " do
     rpc = RpcClient.new()
     address = "eb98b02392caa172fd1a2e4e91c8a581cd333e3e39fe9a9969afa64ab5c31673"

@@ -1,4 +1,6 @@
 defmodule Tx do
+  require IEx
+  alias Helpers
   alias TxIn
   alias TxOut
 
@@ -143,8 +145,16 @@ defmodule Tx do
   def parse(tx, testnet \\ false)
 
   def parse(serialized_tx, testnet) when is_binary(serialized_tx) do
+    serialized_tx =
+      if Helpers.is_hex_string?(serialized_tx) do
+        Base.decode16!(serialized_tx, case: :mixed)
+      else
+        serialized_tx
+      end
+
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
-    {num_inputs, tx_rest} = read_varint(rest)
+    tx_bin = is_segwit(rest)
+    {num_inputs, tx_rest} = read_varint(tx_bin)
 
     {inputs, final_rest} =
       Enum.reduce(1..num_inputs, {[], tx_rest}, fn _, {acc, bin} ->
@@ -198,6 +208,12 @@ defmodule Tx do
       fee > 0 -> fee
     end
   end
+
+  # Check bytes if its segwit
+  defp is_segwit(<<0x00, 0x01, tx::binary>>), do: tx
+
+  # Not a segwit tx
+  defp is_segwit(tx_bin) when is_binary(tx_bin), do: tx_bin
 
   @doc """
   Computes the signature hash (z) for a transaction input.

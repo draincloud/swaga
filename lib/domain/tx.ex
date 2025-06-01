@@ -1,4 +1,7 @@
 defmodule Tx do
+  alias TxIn
+  alias TxOut
+
   @moduledoc """
   Represents a Bitcoin transaction, including inputs, outputs, and metadata.
   Provides functions for parsing, serializing, signing, verifying, and computing fees and IDs.

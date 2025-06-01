@@ -1,4 +1,5 @@
 defmodule Sdk.Wallet do
+  require IEx
   require Logger
   @enforce_keys [:seed, :xprv]
   defstruct [:seed, :xprv, :xpub]
@@ -73,7 +74,7 @@ defmodule Sdk.Wallet do
   end
 
   def generate_address(%__MODULE__{xpub: xpub}, opts \\ []) do
-    h160 = CryptoUtils.hash160(xpub.public_key)
+    pubkey_bytes = CryptoUtils.hash160(xpub.public_key)
 
     network = Keyword.get(opts, :network, :mainnet)
     type = Keyword.get(opts, :type, :base58)
@@ -90,16 +91,21 @@ defmodule Sdk.Wallet do
           {:error, "Invalid network"}
       end
 
+    IEx.pry()
+    pubkey_bytes = pubkey_bytes
+    IEx.pry()
+
     case type do
       :base58 ->
-        Base58.encode_base58_checksum(prefix <> h160)
+        Base58.encode_base58_checksum(prefix <> pubkey_bytes)
 
       :bech32 ->
-        case Bech32.convert_bits(:binary.bin_to_list(h160), 8, 5, true) do
+        case Bech32.convert_bits(:binary.bin_to_list(pubkey_bytes), 8, 5, true) do
           {:ok, five_bit_groups} ->
             # Now call encode with the list of 5-bit integers
             # Pass :bech32 as encoding_type
-            Bech32.encode(hrp, five_bit_groups, :bech32)
+            # Prepend witness version (0 for P2WPKH)
+            Bech32.encode(hrp, [0] ++ five_bit_groups, :bech32)
 
           {:error, reason} ->
             Logger.error("Failed to convert bits for Bech32 encoding: #{inspect(reason)}")
@@ -114,7 +120,6 @@ defmodule Sdk.Wallet do
   #  def create_transaction(inputs, outputs, fee_rate, change_address) do
   #  end
 
-  #  def get_utxos(address)
   #  def sign_transaction(unsigned_tx, private_keys_for_inputs)
   #  def broadcast_transaction(signed_tx)
 end

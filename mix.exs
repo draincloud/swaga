@@ -31,7 +31,9 @@ defmodule Swaga.MixProject do
       {:plug_cowboy, "~> 2.0"},
       {:murmur, "~> 1.0"},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
-      {:pbkdf2_elixir, "~> 2.3.1"}
+      {:pbkdf2_elixir, "~> 2.3.1"},
+      {:httpoison, "~> 2.0"},
+      {:dotenvy, "~> 1.1.0"}
     ]
   end
 end

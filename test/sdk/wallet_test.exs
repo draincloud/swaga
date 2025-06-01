@@ -71,14 +71,21 @@ defmodule Sdk.WalletTest do
     assert address == "19DQYeqNSEmbK5RQHEffK3zMoVDVRmzTzC"
   end
 
-  #  @tag :in_progress
+  test "wallet generate address mainnet bech32" do
+    sender =
+      Wallet.from_seed("4ac2c2d606a110b150ff849fef221cc71643a03517ca7fda185a8ca1d410c7d4")
+
+    {:ok, sender_address} = Wallet.generate_address(sender, type: :bech32, network: :mainnet)
+    assert "bc1qfxj53saudlgqc8n0nkwqpq83qgvlwdpzyuljq7" == sender_address
+  end
+
   test "use wallet and create transaction" do
     sender =
-      Wallet.from_seed(
-        "be73ca6879a2777cc669312f1bcde0d2e6f1af1272440def35d848f63c25e9b7d03d392633ea5e5c32246e52b00a436a0917039940a75da7e3580caf88a8ad8f"
-      )
+      Wallet.from_seed("4ac2c2d606a110b150ff849fef221cc71643a03517ca7fda185a8ca1d410c7d4")
 
     Logger.debug("sender #{inspect(sender.xprv.encoded_xprv)}")
+    Logger.debug("sender #{inspect(sender.xprv.private_key |> Base.encode16())}")
+    Logger.debug("sender #{inspect(sender.xpub.public_key |> Base.encode16())}")
 
     receiver =
       Wallet.from_seed(
@@ -86,9 +93,9 @@ defmodule Sdk.WalletTest do
       )
 
     Logger.debug("receiver #{inspect(receiver.xprv.encoded_xprv)}")
-
-    sender_address = Wallet.generate_address(sender, testnet: true)
+    {:ok, sender_address} = Wallet.generate_address(sender, type: :bech32, network: :testnet)
     Logger.debug("receiver #{inspect(sender_address)}")
-    #    IEx.pry()
+    assert "tb1qfxj53saudlgqc8n0nkwqpq83qgvlwdpzw6ypmd" == sender_address
+    # send test funds to address generated
   end
 end

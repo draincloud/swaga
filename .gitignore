@@ -27,3 +27,4 @@ swaga-*.tar
 .elixir_ls
 _build
 Mnesia*/
+.env

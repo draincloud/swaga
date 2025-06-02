@@ -13,7 +13,8 @@ defmodule Tx do
           tx_ins: [TxIn.t()],
           tx_outs: [TxOut.t()],
           locktime: non_neg_integer(),
-          testnet: boolean()
+          testnet: boolean(),
+          witnesses: []
         }
 
   @enforce_keys [
@@ -26,7 +27,8 @@ defmodule Tx do
     :tx_ins,
     :tx_outs,
     :locktime,
-    :testnet
+    :testnet,
+    :witnesses
   ]
 
   @sighash_all 1
@@ -153,24 +155,48 @@ defmodule Tx do
       end
 
     <<version_bin::binary-size(4), rest::binary>> = serialized_tx
-    tx_bin = is_segwit(rest)
-    {num_inputs, tx_rest} = read_varint(tx_bin)
+    # Check for segwit tx
+    {segwit_flag, tx_bin} = is_segwit(rest)
+
+    {inputs_count, tx_rest} = read_varint(tx_bin)
 
     {inputs, final_rest} =
-      Enum.reduce(1..num_inputs, {[], tx_rest}, fn _, {acc, bin} ->
+      Enum.reduce(1..inputs_count, {[], tx_rest}, fn _, {acc, bin} ->
         {new_bin, input} = TxIn.parse(bin)
         {[input | acc], new_bin}
       end)
 
-    {num_outputs, tx_rest} = read_varint(final_rest)
+    {outputs_count, tx_rest} = read_varint(final_rest)
 
-    {outputs, final_rest} =
-      Enum.reduce(1..num_outputs, {[], tx_rest}, fn _, {acc, bin} ->
+    {outputs, tx_rest_after_outputs} =
+      Enum.reduce(1..outputs_count, {[], tx_rest}, fn _, {acc, bin} ->
         {new_bin, output} = TxOut.parse(bin)
         {[output | acc], new_bin}
       end)
 
-    <<raw_locktime::binary-size(4), _::binary>> = final_rest
+    {witnesses, tx_rest_after_witness} =
+      case segwit_flag do
+        true ->
+          Enum.map_reduce(1..inputs_count, tx_rest_after_outputs, fn _, bin ->
+            # Read how many elements are in the witness stack for this specific input
+            {witness_count, bin} = read_varint(bin)
+
+            {input_witnesses, bin} =
+              Enum.map_reduce(1..witness_count, bin, fn _, bin ->
+                {witness_length, witness_bin_rest} = read_varint(bin)
+                <<witness::binary-size(witness_length), bin::binary>> = witness_bin_rest
+                {witness, bin}
+              end)
+
+            # 1st is stored inside new array, second is acc
+            {input_witnesses, bin}
+          end)
+
+        false ->
+          {[], tx_rest_after_outputs}
+      end
+
+    <<raw_locktime::binary-size(4), _::binary>> = tx_rest_after_witness
     locktime = MathUtils.little_endian_to_int(raw_locktime)
 
     %Tx{
@@ -178,6 +204,7 @@ defmodule Tx do
       tx_ins: inputs |> Enum.reverse(),
       tx_outs: outputs |> Enum.reverse(),
       locktime: locktime,
+      witnesses: witnesses,
       testnet: testnet
     }
   end
@@ -210,10 +237,10 @@ defmodule Tx do
   end
 
   # Check bytes if its segwit
-  defp is_segwit(<<0x00, 0x01, tx::binary>>), do: tx
+  defp is_segwit(<<0x00, 0x01, tx_bin::binary>>), do: {true, tx_bin}
 
   # Not a segwit tx
-  defp is_segwit(tx_bin) when is_binary(tx_bin), do: tx_bin
+  defp is_segwit(tx_bin) when is_binary(tx_bin), do: {false, tx_bin}
 
   @doc """
   Computes the signature hash (z) for a transaction input.

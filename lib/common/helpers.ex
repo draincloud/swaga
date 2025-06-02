@@ -53,4 +53,18 @@ defmodule Helpers do
   end
 
   def ip_v4(_), do: raise(ArgumentError, "Invalid IPv4 address")
+
+  @doc """
+  Check every element in the list
+  Throws an error, if type is not correct
+  """
+  def validate_list_of_structs(list, module) when is_list(list) do
+    case Enum.all?(list, &is_struct(&1, module)) do
+      false ->
+        raise "Invalid list of struct #{inspect(module)} #{inspect(list)}"
+
+      true ->
+        {:ok}
+    end
+  end
 end

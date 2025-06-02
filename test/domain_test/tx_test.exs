@@ -114,6 +114,7 @@ defmodule TxTest do
     target_output = TxOut.new(target_amount, target_script)
     tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
     id = Tx.id(tx)
+    Logger.error(Tx.serialize(tx) |> Base.encode16(case: :lower))
     assert id == "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11"
   end
 
@@ -164,7 +165,6 @@ defmodule TxTest do
     assert nil == Tx.coinbase_height(tx)
   end
 
-  @tag :in_progress
   test "parse SEGWIT testnet transaction id: eb98b02392caa172fd1a2e4e91c8a581cd333e3e39fe9a9969afa64ab5c31673" do
     tx_body =
       "0200000000010144fe8feb6464f806f12d39e7acbb43564d7af87d72dea78fef80eed30e407b310100000000fdffffff02feb9af0000000000160014a34874fcb2e92e33014383b842456b486fb3acfb102700000000000016001449a548c3bc6fd00c1e6f9d9c0080f10219f7342202473044022000b67441ebbbaab8172499e792d28bb8e535e6afa0f70764c1060e57f5c75525022045b86c1c98a75948960215cd5221c0db8871f8d2dce58b5999de8ade15d15403012102857892c09c438ebfa4d13cecb5fd2fb3956a32f173ce4e8a22c92126cd2e2e90b6694400"

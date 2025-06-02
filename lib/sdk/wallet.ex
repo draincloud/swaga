@@ -5,6 +5,8 @@ defmodule Sdk.Wallet do
   defstruct [:seed, :xprv, :xpub]
   alias BIP32.Seed
   alias Bech32
+  alias TxIn
+  alias TxOut
 
   @type t :: %__MODULE__{
           seed: binary()
@@ -97,7 +99,7 @@ defmodule Sdk.Wallet do
 
     case type do
       :base58 ->
-        Base58.encode_base58_checksum(prefix <> pubkey_bytes)
+        {:ok, Base58.encode_base58_checksum(prefix <> pubkey_bytes)}
 
       :bech32 ->
         case Bech32.convert_bits(:binary.bin_to_list(pubkey_bytes), 8, 5, true) do
@@ -117,8 +119,12 @@ defmodule Sdk.Wallet do
     end
   end
 
-  #  def create_transaction(inputs, outputs, fee_rate, change_address) do
-  #  end
+  def create_transaction(inputs, outputs, fee_rate, change_address)
+      when is_list(inputs) and is_list(outputs) do
+    # Validate inputs
+    {:ok} = Helpers.validate_list_of_structs(inputs, TxIn)
+    {:ok} = Helpers.validate_list_of_structs(outputs, TxOut)
+  end
 
   #  def sign_transaction(unsigned_tx, private_keys_for_inputs)
   #  def broadcast_transaction(signed_tx)

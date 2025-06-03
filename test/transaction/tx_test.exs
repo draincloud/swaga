@@ -105,7 +105,6 @@ defmodule TxTest do
     target_output = TxOut.new(target_amount, target_script)
     tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
     id = Tx.id(tx)
-    Logger.error(Tx.serialize(tx) |> Base.encode16(case: :lower))
     assert id == "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11"
   end
 

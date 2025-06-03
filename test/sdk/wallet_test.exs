@@ -108,7 +108,7 @@ defmodule Sdk.WalletTest do
       |> Base.decode16!(case: :lower)
 
     prev_index = 1
-    tx_in = TxIn.new(prev_tx, prev_index)
+    tx_in = TxIn.new(prev_tx, prev_index, Script.new([]), 0xFFFFFFFF, :segwit)
 
     change_h160 = Base58.decode(receiver_address)
     change_script = Script.p2pkh_script(change_h160)
@@ -120,6 +120,7 @@ defmodule Sdk.WalletTest do
     target_script = Script.p2pkh_script(target_h160)
     target_output = TxOut.new(target_amount, target_script)
 
+    # We need to sign tx for every input
     tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
     tx_build = Tx.serialize(tx) |> Base.encode16(case: :lower)
     id = Tx.id(tx)

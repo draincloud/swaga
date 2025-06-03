@@ -443,7 +443,6 @@ defmodule Tx do
   Signs a specific input in the transaction using a private key.
   It calculates the signature hash, signs it, and constructs the
   ScriptSig (assuming P2PKH for now).
-
   ## Parameters
     - tx: The transaction (%Tx{}).
     - input_index: The index of the input to sign.
@@ -453,7 +452,7 @@ defmodule Tx do
     - `{boolean, %Tx{}}` where the boolean indicates if verification passed,
       and the %Tx{} is the updated transaction with the new ScriptSig.
   """
-  def sign_input(%Tx{} = tx, input_index, %PrivateKey{} = private_key)
+  def sign_input(%Tx{tx_ins: inputs} = tx, input_index, %PrivateKey{} = private_key)
       when is_integer(input_index) do
     # Sign the first input
     z =
@@ -466,21 +465,42 @@ defmodule Tx do
     # The signature is a combination of the DER signature and the hash type
     sig = der <> :binary.encode_unsigned(@sighash_all, :big)
     sec = private_key.point |> Secp256Point.compressed_sec()
-    # The scriptSig of a p2pkh has two elements, the signature and SEC format public key
-    script_sig = Script.new([sig, sec])
 
-    updated_inputs =
-      Enum.with_index(tx.tx_ins)
-      |> Enum.map(fn {input, i} ->
-        if i == input_index do
-          %TxIn{input | script_sig: script_sig}
-        else
-          input
-        end
-      end)
+    # Check for input type
+    current_input = Enum.at(inputs, input_index)
 
-    updated = %Tx{tx | tx_ins: updated_inputs}
-    {verify_input(updated, input_index), updated}
+    case current_input.type do
+      :segwit ->
+        witness_stack_for_this_input = [sig, sec]
+
+        updated_witnesses_list =
+          List.replace_at(tx.witnesses, input_index, witness_stack_for_this_input)
+
+        updated_tx_for_segwit = %Tx{
+          tx
+          | witnesses: updated_witnesses_list
+        }
+
+        # Add real verify here
+        {true, updated_tx_for_segwit}
+
+      :legacy ->
+        # The scriptSig of a p2pkh has two elements, the signature and SEC format public key
+        script_sig = Script.new([sig, sec])
+
+        updated_inputs =
+          Enum.with_index(tx.tx_ins)
+          |> Enum.map(fn {input, i} ->
+            if i == input_index do
+              %TxIn{input | script_sig: script_sig}
+            else
+              input
+            end
+          end)
+
+        updated = %Tx{tx | tx_ins: updated_inputs}
+        {verify_input(updated, input_index), updated}
+    end
   end
 
   @doc """

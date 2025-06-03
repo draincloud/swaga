@@ -82,7 +82,6 @@ defmodule Sdk.WalletTest do
     assert "bc1qfxj53saudlgqc8n0nkwqpq83qgvlwdpzyuljq7" == sender_address
   end
 
-  @tag :in_progress
   test "use wallet and create transaction" do
     sender =
       Wallet.from_seed("4ac2c2d606a110b150ff849fef221cc71643a03517ca7fda185a8ca1d410c7d4")
@@ -103,25 +102,6 @@ defmodule Sdk.WalletTest do
     Logger.debug("receiver #{inspect(receiver_address)}")
     assert "tb1qfxj53saudlgqc8n0nkwqpq83qgvlwdpzw6ypmd" == sender_address
     assert "mthgYuwnJUnjqNVgjSMnoRysj1bkXJwSvq" == receiver_address
-    # send test funds to address generated
-    #    prev_tx =
-    #      Base.decode16!("0d6fe5213c0b3291f208cba8bfb59b7476dffacc4e5cb66f6eb20a080843a299",
-    #        case: :lower
-    #      )
-    #
-    #    prev_index = 13
-    #    tx_in = TxIn.new(prev_tx, prev_index)
-    #    change_amount = trunc(0.33 * 100_000_000)
-    #    change_h160 = Base58.decode("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
-    #    change_script = Script.p2pkh_script(change_h160)
-    #    change_output = TxOut.new(change_amount, change_script)
-    #    target_amount = trunc(0.1 * 100_000_000)
-    #    target_h160 = Base58.decode("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
-    #    target_script = Script.p2pkh_script(target_h160)
-    #    target_output = TxOut.new(target_amount, target_script)
-    #    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
-    #    id = Tx.id(tx)
-    #    Logger.error(Tx.serialize(tx) |> Base.encode16(case: :lower))
 
     prev_tx =
       "eb98b02392caa172fd1a2e4e91c8a581cd333e3e39fe9a9969afa64ab5c31673"
@@ -154,7 +134,7 @@ defmodule Sdk.WalletTest do
           Map.get(tx, "result") |> Map.get("hex")
 
         error ->
-          Logger.error("#{inspect(error)}")
+          Logger.debug("#{inspect(error)}")
           {:error}
       end
   end

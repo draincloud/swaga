@@ -119,12 +119,12 @@ defmodule Sdk.Wallet do
     end
   end
 
-  def create_transaction(inputs, outputs, fee_rate, change_address)
-      when is_list(inputs) and is_list(outputs) do
-    # Validate inputs
-    {:ok} = Helpers.validate_list_of_structs(inputs, TxIn)
-    {:ok} = Helpers.validate_list_of_structs(outputs, TxOut)
-  end
+  #  def create_transaction(inputs, outputs, fee_rate, change_address)
+  #      when is_list(inputs) and is_list(outputs) do
+  #    # Validate inputs
+  #    {:ok} = Helpers.validate_list_of_structs(inputs, TxIn)
+  #    {:ok} = Helpers.validate_list_of_structs(outputs, TxOut)
+  #  end
 
   #  def sign_transaction(unsigned_tx, private_keys_for_inputs)
   #  def broadcast_transaction(signed_tx)

@@ -14,12 +14,16 @@ defmodule Tx do
           tx_outs: [TxOut.t()],
           locktime: non_neg_integer(),
           testnet: boolean(),
-          witnesses: []
+          witnesses: [[binary()]]
         }
 
   @enforce_keys [
     :version,
-    :tx_ins
+    :tx_ins,
+    :tx_outs,
+    :locktime,
+    :testnet,
+    :witnesses
   ]
 
   defstruct [
@@ -52,7 +56,8 @@ defmodule Tx do
         tx_ins,
         tx_outs,
         locktime,
-        testnet
+        testnet,
+        witnesses \\ nil
       )
       when is_integer(version) and version > 0 and is_list(tx_ins) and is_list(tx_outs) and
              is_integer(locktime) and locktime >= 0 and
@@ -63,14 +68,13 @@ defmodule Tx do
         tx_ins: tx_ins,
         tx_outs: tx_outs,
         locktime: locktime,
-        testnet: testnet
+        testnet: testnet,
+        witnesses: witnesses || List.duplicate([], length(tx_ins))
       }
     else
       {:error, :invalid_inputs_or_outputs}
     end
   end
-
-  def new(_version, _tx_ins, _tx_outs, _locktime, _testnet), do: {:error, :invalid_input}
 
   @doc """
   Returns the command identifier for transactions.
@@ -242,7 +246,12 @@ defmodule Tx do
   # Not a segwit tx
   defp is_segwit(tx_bin) when is_binary(tx_bin), do: {false, tx_bin}
 
+  defp is_segwit(%__MODULE__{witnesses: witnesses})
+       when is_list(witnesses) and length(witnesses) > 0,
+       do: {true, nil}
+
   @doc """
+  ## LEGACY
   Computes the signature hash (z) for a transaction input.
 
   ## Parameters
@@ -292,7 +301,7 @@ defmodule Tx do
             nil
           end
 
-        new_input = TxIn.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence)
+        new_input = TxIn.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence, :legacy)
         TxIn.serialize(new_input)
       end)
 
@@ -447,7 +456,12 @@ defmodule Tx do
   def sign_input(%Tx{} = tx, input_index, %PrivateKey{} = private_key)
       when is_integer(input_index) do
     # Sign the first input
-    z = sig_hash(tx, input_index)
+    z =
+      case is_segwit(tx) do
+        {true, _} -> Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(tx, input_index, "publickeyhash")
+        {false, _} -> sig_hash(tx, input_index)
+      end
+
     der = PrivateKey.sign(private_key, z) |> Signature.der()
     # The signature is a combination of the DER signature and the hash type
     sig = der <> :binary.encode_unsigned(@sighash_all, :big)

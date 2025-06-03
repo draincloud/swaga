@@ -185,8 +185,14 @@ defmodule Script do
 
   # Takes a hash160 and returns the p2pkh ScriptPubKey
   # OP_DUP OP_HASH160 address OP_EQUALVERIFY OP_CHECKSIG
-  def p2pkh_script(h160) do
-    Script.new([0x76, 0xA9, h160, 0x88, 0xAC])
+  def p2pkh_script(public_key_hash) do
+    Script.new([0x76, 0xA9, public_key_hash, 0x88, 0xAC])
+  end
+
+  # Pay to witness public key hash
+  # Same as Pay to Public Key Hash
+  def p2wpkh(public_key_hash) do
+    Script.new([0x76, 0xA9, public_key_hash, 0x88, 0xAC])
   end
 
   # Takes a byte sequence hash160 and returns a p2pkh address string

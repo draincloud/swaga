@@ -1,6 +1,8 @@
 defmodule TxIn do
+  require IEx
   require Logger
   alias Binary.Common
+  alias Sdk.RpcClient
 
   @moduledoc """
   Represents a single input in a Bitcoin transaction.
@@ -18,21 +20,25 @@ defmodule TxIn do
           # The unlocking script.
           script_sig: Script.t(),
           # Sequence number (default: 0xFFFFFFFF).
-          sequence: non_neg_integer()
+          sequence: non_neg_integer(),
+          # :legacy, :segwit
+          type: atom()
         }
 
   @enforce_keys [
     :prev_tx,
     :prev_index,
     :script_sig,
-    :sequence
+    :sequence,
+    :type
   ]
 
   defstruct [
     :prev_tx,
     :prev_index,
     :script_sig,
-    :sequence
+    :sequence,
+    :type
   ]
 
   @doc """
@@ -46,15 +52,22 @@ defmodule TxIn do
       prev_tx: prev_tx,
       prev_index: prev_index,
       script_sig: Script.new(),
-      sequence: 0xFFFFFFFF
+      sequence: 0xFFFFFFFF,
+      type: :legacy
     }
   end
 
   @doc """
   Creates a new `TxIn` with a specified `script_sig` and `sequence`.
   """
-  def new(prev_tx, prev_index, script_sig, sequence) do
-    %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}
+  def new(prev_tx, prev_index, script_sig, sequence, type) do
+    %TxIn{
+      prev_tx: prev_tx,
+      prev_index: prev_index,
+      script_sig: script_sig,
+      sequence: sequence,
+      type: type
+    }
   end
 
   @doc """
@@ -94,8 +107,16 @@ defmodule TxIn do
     <<sequence::binary-size(4), rest4::binary>> = rest3
     sequence = MathUtils.little_endian_to_int(sequence)
 
-    {rest4,
-     %TxIn{prev_tx: prev_tx, prev_index: prev_index, script_sig: script_sig, sequence: sequence}}
+    tx_in =
+      new(
+        prev_tx,
+        prev_index,
+        script_sig,
+        sequence,
+        :legacy
+      )
+
+    {rest4, tx_in}
   end
 
   @doc """
@@ -104,9 +125,22 @@ defmodule TxIn do
   This requires fetching the full previous transaction, typically via an external
   service (`TxFetcher`). It returns `amount`.
   """
-  def value(%{prev_tx: prev_tx, prev_index: index}, testnet) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
-    Enum.at(outputs, index).amount
+  def value(%{prev_tx: prev_tx, prev_index: index}, testnet \\ false) do
+    rpc = RpcClient.new()
+    prev_tx = if is_binary(prev_tx), do: Base.encode16(prev_tx), else: prev_tx
+
+    outputs =
+      case RpcClient.get_raw_transaction(rpc, prev_tx) do
+        {:ok, tx} ->
+          IEx.pry()
+          Map.get(tx, "result") |> Map.get("vout")
+
+        reason ->
+          IEx.pry()
+          {:error, reason}
+      end
+
+    Enum.at(outputs, index) |> Map.get("value") |> Common.convert_to_satoshis() |> trunc()
   end
 
   @doc """
@@ -115,8 +149,20 @@ defmodule TxIn do
   This is necessary to verify the `script_sig`. It returns `script`
   """
   def script_pubkey(%TxIn{prev_tx: prev_tx, prev_index: prev_index}, testnet) do
-    %{tx_outs: outputs} = fetch_tx(prev_tx, testnet)
-    Enum.at(outputs, prev_index).script_pubkey
+    rpc = RpcClient.new()
+    prev_tx = if is_binary(prev_tx), do: Base.encode16(prev_tx), else: prev_tx
+
+    outputs =
+      case RpcClient.get_raw_transaction(rpc, prev_tx) do
+        {:ok, tx} ->
+          Map.get(tx, "result") |> Map.get("vout")
+
+        reason ->
+          {:error, reason}
+      end
+
+    IEx.pry()
+    Enum.at(outputs, prev_index) |> Map.get("script")
   end
 
   @doc """
@@ -130,17 +176,5 @@ defmodule TxIn do
       prev_index == 0xFFFFFFFF and prev_tx == :binary.copy(<<00>>, 32) -> true
       true -> false
     end
-  end
-
-  #  Internal helper to fetch a transaction using its hash.
-  #  Handles hex encoding and calls the `TxFetcher`. Returns Tx.t()
-  #  or `{:error, reason}`.
-  defp fetch_tx(hash, testnet) when is_binary(hash) do
-    hex = Base.encode16(hash)
-    TxFetcher.fetch(hex, testnet)
-  end
-
-  defp fetch_tx(hash, _testnet) do
-    {:error, {:invalid_hash_type, hash}}
   end
 end

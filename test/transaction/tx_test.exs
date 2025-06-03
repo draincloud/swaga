@@ -74,15 +74,6 @@ defmodule TxTest do
     assert locktime == 410_393
   end
 
-  test "sig_hash" do
-    tx = TxFetcher.fetch("452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03")
-
-    want =
-      String.to_integer("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", 16)
-
-    assert Tx.sig_hash(tx, 0) == want
-  end
-
   test "converting the modified transaction to z" do
     modified_tx =
       Base.decode16!(

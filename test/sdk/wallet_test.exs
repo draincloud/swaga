@@ -82,6 +82,7 @@ defmodule Sdk.WalletTest do
     assert "bc1qfxj53saudlgqc8n0nkwqpq83qgvlwdpzyuljq7" == sender_address
   end
 
+  @tag :in_progress
   test "use wallet and create transaction" do
     sender =
       Wallet.from_seed("4ac2c2d606a110b150ff849fef221cc71643a03517ca7fda185a8ca1d410c7d4")
@@ -120,10 +121,12 @@ defmodule Sdk.WalletTest do
     target_script = Script.p2pkh_script(target_h160)
     target_output = TxOut.new(target_amount, target_script)
 
+    private_key = sender.xprv.private_key |> PrivateKey.new()
     # We need to sign tx for every input
-    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
-    tx_build = Tx.serialize(tx) |> Base.encode16(case: :lower)
-    id = Tx.id(tx)
+    tx = Tx.new(1, [tx_in], [change_output, target_output], 0) |> Tx.sign(private_key)
+    Logger.debug("Signed tx #{inspect(tx)}")
+    Logger.debug("Private key #{inspect(private_key.secret)}")
+    tx_build = Tx.serialize(tx, :segwit) |> Base.encode16(case: :lower)
     rpc = RpcClient.new()
     Logger.debug(tx_build)
 

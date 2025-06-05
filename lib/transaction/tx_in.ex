@@ -125,18 +125,16 @@ defmodule TxIn do
   This requires fetching the full previous transaction, typically via an external
   service (`TxFetcher`). It returns `amount`.
   """
-  def value(%{prev_tx: prev_tx, prev_index: index}, testnet \\ false) do
+  def value(%{prev_tx: prev_tx, prev_index: index}) do
     rpc = RpcClient.new()
     prev_tx = if is_binary(prev_tx), do: Base.encode16(prev_tx), else: prev_tx
 
     outputs =
       case RpcClient.get_raw_transaction(rpc, prev_tx) do
         {:ok, tx} ->
-          IEx.pry()
           Map.get(tx, "result") |> Map.get("vout")
 
         reason ->
-          IEx.pry()
           {:error, reason}
       end
 
@@ -148,7 +146,7 @@ defmodule TxIn do
 
   This is necessary to verify the `script_sig`. It returns `script`
   """
-  def script_pubkey(%TxIn{prev_tx: prev_tx, prev_index: prev_index}, testnet) do
+  def script_pubkey(%TxIn{prev_tx: prev_tx, prev_index: prev_index}) do
     rpc = RpcClient.new()
     prev_tx = if is_binary(prev_tx), do: Base.encode16(prev_tx), else: prev_tx
 
@@ -161,8 +159,7 @@ defmodule TxIn do
           {:error, reason}
       end
 
-    IEx.pry()
-    Enum.at(outputs, prev_index) |> Map.get("script")
+    Enum.at(outputs, prev_index) |> Map.get("scriptPubKey") |> Map.get("hex")
   end
 
   @doc """

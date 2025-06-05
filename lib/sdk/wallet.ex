@@ -93,9 +93,7 @@ defmodule Sdk.Wallet do
           {:error, "Invalid network"}
       end
 
-    IEx.pry()
     pubkey_bytes = pubkey_bytes
-    IEx.pry()
 
     case type do
       :base58 ->

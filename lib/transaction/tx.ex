@@ -13,7 +13,6 @@ defmodule Tx do
           tx_ins: [TxIn.t()],
           tx_outs: [TxOut.t()],
           locktime: non_neg_integer(),
-          testnet: boolean(),
           witnesses: [[binary()]]
         }
 
@@ -22,7 +21,6 @@ defmodule Tx do
     :tx_ins,
     :tx_outs,
     :locktime,
-    :testnet,
     :witnesses
   ]
 
@@ -31,7 +29,6 @@ defmodule Tx do
     :tx_ins,
     :tx_outs,
     :locktime,
-    :testnet,
     :witnesses
   ]
 
@@ -45,7 +42,6 @@ defmodule Tx do
     - tx_ins: List of transaction inputs (%TxIn{}).
     - tx_outs: List of transaction outputs (%TxOut{}).
     - locktime: Locktime (integer).
-    - testnet: Boolean indicating testnet (true) or mainnet (false).
 
   ## Returns
     - %Tx{} if valid.
@@ -56,19 +52,16 @@ defmodule Tx do
         tx_ins,
         tx_outs,
         locktime,
-        testnet,
         witnesses \\ nil
       )
       when is_integer(version) and version > 0 and is_list(tx_ins) and is_list(tx_outs) and
-             is_integer(locktime) and locktime >= 0 and
-             is_boolean(testnet) do
+             is_integer(locktime) and locktime >= 0 do
     if Enum.all?(tx_ins, &is_struct(&1, TxIn)) and Enum.all?(tx_outs, &is_struct(&1, TxOut)) do
       %Tx{
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
         locktime: locktime,
-        testnet: testnet,
         witnesses: witnesses || List.duplicate([], length(tx_ins))
       }
     else
@@ -142,15 +135,14 @@ defmodule Tx do
 
   ## Parameters
     - serialized_tx: Binary in Bitcoin wire format.
-    - testnet: Boolean indicating testnet (default: false).
 
   ## Returns
     - %Tx{} if valid.
     - {:error, reason} if invalid.
   """
-  def parse(tx, testnet \\ false)
+  def parse(tx)
 
-  def parse(serialized_tx, testnet) when is_binary(serialized_tx) do
+  def parse(serialized_tx) when is_binary(serialized_tx) do
     serialized_tx =
       if Helpers.is_hex_string?(serialized_tx) do
         Base.decode16!(serialized_tx, case: :mixed)
@@ -208,26 +200,24 @@ defmodule Tx do
       tx_ins: inputs |> Enum.reverse(),
       tx_outs: outputs |> Enum.reverse(),
       locktime: locktime,
-      witnesses: witnesses,
-      testnet: testnet
+      witnesses: witnesses
     }
   end
 
-  def parse(_tx, _testnet), do: {:error, :invalid_input}
+  def parse(_tx), do: {:error, :invalid_input}
 
   @doc """
   Calculates the transaction fee (input sum minus output sum).
 
   ## Parameters
     - tx: Transaction (%Tx{}).
-    - testnet: Boolean for testnet (default: false).
 
   ## Returns
     - integer() if valid.
     - {:error, reason} if invalid.
   """
-  def fee(%{tx_ins: inputs, tx_outs: outputs}, testnet \\ false) do
-    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input, testnet) end)
+  def fee(%{tx_ins: inputs, tx_outs: outputs}) do
+    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input) end)
     output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
 
     fee = input_sum - output_sum
@@ -246,10 +236,6 @@ defmodule Tx do
   # Not a segwit tx
   defp is_segwit(tx_bin) when is_binary(tx_bin), do: {false, tx_bin}
 
-  defp is_segwit(%__MODULE__{witnesses: witnesses})
-       when is_list(witnesses) and length(witnesses) > 0,
-       do: {true, nil}
-
   @doc """
   ## LEGACY
   Computes the signature hash (z) for a transaction input.
@@ -267,7 +253,6 @@ defmodule Tx do
           version: version,
           tx_ins: inputs,
           tx_outs: outputs,
-          testnet: testnet,
           locktime: locktime
         },
         input_index
@@ -295,7 +280,7 @@ defmodule Tx do
           if i == input_index do
             # If the RedeemScript (p2sh script) was passed in -> that's the ScriptSig
             # otherwise the previous tx's ScriptPubkey is the ScriptSig
-            TxIn.script_pubkey(inp, testnet)
+            TxIn.script_pubkey(inp)
           else
             # Otherwise, the ScriptSig is nil
             nil
@@ -330,17 +315,29 @@ defmodule Tx do
     - `true` if the signature is valid.
     - `false` otherwise.
   """
-  def verify_input(%Tx{tx_ins: inputs, testnet: testnet} = tx, input_index)
+  def verify_input(%Tx{tx_ins: inputs} = tx, input_index)
       when is_integer(input_index) and
              is_list(inputs) and length(inputs) > 0 do
     # Get the relevant input
     input = Enum.at(inputs, input_index)
     # Grab the previous ScriptPubKey
-    script_pubkey = TxIn.script_pubkey(input, testnet)
+    script_pubkey =
+      TxIn.script_pubkey(input) |> Base.decode16!(case: :mixed)
+
+    IEx.pry()
     # Get the signature hash(z)
     # Pass the redeemScript ot the sig_hash method
-    z = sig_hash(tx, input_index)
+    z =
+      case input.type do
+        :segwit ->
+          Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(tx, input_index, script_pubkey)
+
+        :legacy ->
+          sig_hash(tx, input_index)
+      end
+
     # Combined the current ScriptSig and the previous ScriptPubkey
+    {_unread_bin, script_pubkey} = script_pubkey |> Script.parse()
     combined = Script.add(input.script_sig, script_pubkey)
     # evaluate the combined script
     Script.evaluate(combined, z)
@@ -401,6 +398,14 @@ defmodule Tx do
     tx |> hash |> Base.encode16(case: :lower)
   end
 
+  def serialize(tx, type \\ :legacy) when is_struct(tx, Tx) do
+    case type do
+      :legacy -> serialize_legacy(tx)
+      :segwit -> serialize_segwit(tx)
+      _ -> {:error, "Type #{inspect(type)} not supported"}
+    end
+  end
+
   @doc """
   Returns the byte serialization of the transaction in Bitcoin wire format.
 
@@ -410,7 +415,7 @@ defmodule Tx do
   ## Returns
     - binary() with the serialized transaction.
   """
-  def serialize(%Tx{
+  def serialize_legacy(%Tx{
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
@@ -439,6 +444,51 @@ defmodule Tx do
     result <> serialized_outputs <> MathUtils.int_to_little_endian(locktime, 4)
   end
 
+  def serialize_segwit(%Tx{
+        version: version,
+        tx_ins: tx_ins,
+        tx_outs: tx_outs,
+        locktime: locktime,
+        witnesses: witnesses
+      })
+      when is_integer(version) and is_list(tx_ins) and length(tx_ins) > 0 and is_list(tx_outs) and
+             length(tx_outs) > 0 and is_integer(locktime) and length(witnesses) > 0 and
+             length(tx_ins) == length(witnesses) do
+    # Serialize version
+    result = MathUtils.int_to_little_endian(version, 4)
+    # Encode varint on the number of inputs
+    result = result <> <<0x00, 0x01>>
+    result = result <> encode_varint(length(tx_ins))
+
+    # Serialize each input
+    serialized_inputs =
+      Enum.map_join(tx_ins, fn inp ->
+        TxIn.serialize(inp)
+      end)
+
+    result = result <> serialized_inputs <> encode_varint(length(tx_outs))
+
+    serialized_outputs =
+      Enum.map_join(tx_outs, fn out ->
+        TxOut.serialize(out)
+      end)
+
+    serialized_witnesses =
+      Enum.map_join(witnesses, fn witness_stack ->
+        stack_varint = encode_varint(length(witness_stack))
+
+        items =
+          Enum.map_join(witness_stack, fn item ->
+            encode_varint(byte_size(item)) <> item
+          end)
+
+        stack_varint <> items
+      end)
+
+    result <>
+      serialized_outputs <> serialized_witnesses <> MathUtils.int_to_little_endian(locktime, 4)
+  end
+
   @doc """
   Signs a specific input in the transaction using a private key.
   It calculates the signature hash, signs it, and constructs the
@@ -454,20 +504,23 @@ defmodule Tx do
   """
   def sign_input(%Tx{tx_ins: inputs} = tx, input_index, %PrivateKey{} = private_key)
       when is_integer(input_index) do
-    # Sign the first input
+    # Check for input type
+    current_input = Enum.at(inputs, input_index)
+
     z =
-      case is_segwit(tx) do
-        {true, _} -> Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(tx, input_index, "publickeyhash")
-        {false, _} -> sig_hash(tx, input_index)
+      case current_input.type do
+        :segwit ->
+          pubkey_hash = TxIn.script_pubkey(current_input)
+          Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(tx, input_index, pubkey_hash)
+
+        :legacy ->
+          sig_hash(tx, input_index)
       end
 
     der = PrivateKey.sign(private_key, z) |> Signature.der()
     # The signature is a combination of the DER signature and the hash type
     sig = der <> :binary.encode_unsigned(@sighash_all, :big)
     sec = private_key.point |> Secp256Point.compressed_sec()
-
-    # Check for input type
-    current_input = Enum.at(inputs, input_index)
 
     case current_input.type do
       :segwit ->
@@ -481,8 +534,9 @@ defmodule Tx do
           | witnesses: updated_witnesses_list
         }
 
+        IEx.pry()
         # Add real verify here
-        {true, updated_tx_for_segwit}
+        {verify_input(updated_tx_for_segwit, input_index), updated_tx_for_segwit}
 
       :legacy ->
         # The scriptSig of a p2pkh has two elements, the signature and SEC format public key
@@ -545,5 +599,13 @@ defmodule Tx do
     else
       nil
     end
+  end
+
+  def sign(%__MODULE__{tx_ins: inputs} = initial_tx, %PrivateKey{} = pk) do
+    0..(length(inputs) - 1)
+    |> Enum.reduce(initial_tx, fn i, tx ->
+      {{:ok}, updated_tx} = sign_input(tx, i, pk)
+      updated_tx
+    end)
   end
 end

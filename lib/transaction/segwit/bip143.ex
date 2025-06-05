@@ -53,8 +53,7 @@ defmodule Tx.Segwit.BIP143 do
           version: version,
           tx_ins: inputs,
           tx_outs: outputs,
-          locktime: locktime,
-          testnet: testnet
+          locktime: locktime
         },
         input_index,
         public_key_hash,
@@ -78,7 +77,7 @@ defmodule Tx.Segwit.BIP143 do
         p2wpkh = Script.p2wpkh(public_key_hash) |> Script.serialize()
         script_code = Tx.encode_varint(byte_size(p2wpkh)) <> p2wpkh
 
-        amount = TxIn.value(input, testnet) |> MathUtils.int_to_little_endian(8)
+        amount = TxIn.value(input) |> MathUtils.int_to_little_endian(8)
 
         n_sequence = sequence |> MathUtils.int_to_little_endian(4)
         hash_outputs = calculate_hash_outputs(outputs)

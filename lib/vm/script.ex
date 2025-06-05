@@ -1,4 +1,6 @@
 defmodule Script do
+  alias Helpers
+
   @enforce_keys [
     :cmds
   ]
@@ -192,6 +194,12 @@ defmodule Script do
   # Pay to witness public key hash
   # Same as Pay to Public Key Hash
   def p2wpkh(public_key_hash) do
+    public_key_hash =
+      case Helpers.is_hex_string?(public_key_hash) do
+        true -> public_key_hash |> Base.decode16!(case: :mixed)
+        false -> public_key_hash
+      end
+
     Script.new([0x76, 0xA9, public_key_hash, 0x88, 0xAC])
   end
 

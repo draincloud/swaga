@@ -3,7 +3,6 @@ defmodule Tx.Segwit.BIP143Test do
   alias Tx.Segwit.BIP143
   alias CryptoUtils
 
-  @tag :in_progress
   test "bip143" do
     receiver_address = "mthgYuwnJUnjqNVgjSMnoRysj1bkXJwSvq"
 

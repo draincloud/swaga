@@ -473,6 +473,9 @@ defmodule Tx do
         TxOut.serialize(out)
       end)
 
+    result = result <> serialized_outputs
+    IEx.pry()
+
     serialized_witnesses =
       Enum.map_join(witnesses, fn witness_stack ->
         stack_varint = encode_varint(length(witness_stack))
@@ -486,7 +489,7 @@ defmodule Tx do
       end)
 
     result <>
-      serialized_outputs <> serialized_witnesses <> MathUtils.int_to_little_endian(locktime, 4)
+      serialized_witnesses <> MathUtils.int_to_little_endian(locktime, 4)
   end
 
   @doc """
@@ -510,8 +513,19 @@ defmodule Tx do
     z =
       case current_input.type do
         :segwit ->
-          pubkey_hash = TxIn.script_pubkey(current_input)
-          Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(tx, input_index, pubkey_hash)
+          script_hash = TxIn.script_pubkey(current_input)
+
+          <<0x00, _length::binary-size(1), pubkey::binary>> =
+            script_hash
+            |> Base.decode16!(case: :lower)
+
+          IEx.pry()
+
+          Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(
+            tx,
+            input_index,
+            pubkey
+          )
 
         :legacy ->
           sig_hash(tx, input_index)
@@ -521,6 +535,7 @@ defmodule Tx do
     # The signature is a combination of the DER signature and the hash type
     sig = der <> :binary.encode_unsigned(@sighash_all, :big)
     sec = private_key.point |> Secp256Point.compressed_sec()
+    IEx.pry()
 
     case current_input.type do
       :segwit ->

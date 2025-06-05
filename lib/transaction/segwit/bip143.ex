@@ -70,9 +70,9 @@ defmodule Tx.Segwit.BIP143 do
         %TxIn{prev_index: prev_index, prev_tx: prev_tx, sequence: sequence} =
           input = Enum.at(inputs, input_index)
 
-        prev_tx_le = Common.reverse_binary(prev_tx)
+        #        prev_tx_le = Common.reverse_binary(prev_tx)
         prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
-        outpoint = prev_tx_le <> prev_index_le
+        outpoint = prev_tx <> prev_index_le
 
         p2wpkh = Script.p2wpkh(public_key_hash) |> Script.serialize()
         script_code = Tx.encode_varint(byte_size(p2wpkh)) <> p2wpkh
@@ -102,10 +102,10 @@ defmodule Tx.Segwit.BIP143 do
   defp calculate_hash_prev_outs(tx_ins) when is_list(tx_ins) do
     Enum.map_join(tx_ins, fn %TxIn{prev_tx: prev_tx, prev_index: prev_index} ->
       # Serialize prev_tx, little_endian
-      prev_tx_le = Common.reverse_binary(prev_tx)
+      #      prev_tx_le = Common.reverse_binary(prev_tx)
       # Serialize prev_index, 4 bytes
       prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
-      prev_tx_le <> prev_index_le
+      prev_tx <> prev_index_le
     end)
     |> CryptoUtils.double_hash256(:bin)
   end

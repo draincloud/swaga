@@ -20,7 +20,7 @@ defmodule TxFetcherTest do
       )
 
     transaction = Tx.parse(raw_tx)
-    assert Tx.fee(transaction, false) == 40000
+    assert Tx.fee(transaction) == 40000
 
     raw_tx =
       Base.decode16!(
@@ -29,7 +29,7 @@ defmodule TxFetcherTest do
       )
 
     transaction = Tx.parse(raw_tx)
-    assert Tx.fee(transaction, false) == 140_500
+    assert Tx.fee(transaction) == 140_500
   end
 
   test "verify p2pkh" do
@@ -51,7 +51,7 @@ defmodule TxFetcherTest do
         case: :mixed
       )
 
-    tx_obj = Tx.parse(tx_raw, true)
+    tx_obj = Tx.parse(tx_raw)
     {{:ok}, updated_tx} = Tx.sign_input(tx_obj, 0, private_key)
 
     want =

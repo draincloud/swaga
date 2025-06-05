@@ -159,6 +159,8 @@ defmodule TxIn do
           {:error, reason}
       end
 
+    IEx.pry()
+
     Enum.at(outputs, prev_index) |> Map.get("scriptPubKey") |> Map.get("hex")
   end
 

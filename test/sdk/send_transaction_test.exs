@@ -74,6 +74,6 @@ defmodule Sdk.SendTransactionTest do
           {:error, error}
       end
 
-    Logger.info("Transction Result: #{inspect(tx_result)}")
+    Logger.info("Transaction Result: #{inspect(tx_result)}")
   end
 end

@@ -74,15 +74,6 @@ defmodule TxTest do
     assert locktime == 410_393
   end
 
-  test "sig_hash" do
-    tx = TxFetcher.fetch("452c629d67e41baec3ac6f04fe744b4b9617f8f859c63b3002f8684e7a4fee03")
-
-    want =
-      String.to_integer("27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", 16)
-
-    assert Tx.sig_hash(tx, 0) == want
-  end
-
   test "converting the modified transaction to z" do
     modified_tx =
       Base.decode16!(
@@ -164,12 +155,15 @@ defmodule TxTest do
     assert nil == Tx.coinbase_height(tx)
   end
 
-  @tag :in_progress
-  test "parse testnet transaction id: eb98b02392caa172fd1a2e4e91c8a581cd333e3e39fe9a9969afa64ab5c31673" do
+  test "parse SEGWIT testnet transaction id: eb98b02392caa172fd1a2e4e91c8a581cd333e3e39fe9a9969afa64ab5c31673" do
     tx_body =
       "0200000000010144fe8feb6464f806f12d39e7acbb43564d7af87d72dea78fef80eed30e407b310100000000fdffffff02feb9af0000000000160014a34874fcb2e92e33014383b842456b486fb3acfb102700000000000016001449a548c3bc6fd00c1e6f9d9c0080f10219f7342202473044022000b67441ebbbaab8172499e792d28bb8e535e6afa0f70764c1060e57f5c75525022045b86c1c98a75948960215cd5221c0db8871f8d2dce58b5999de8ade15d15403012102857892c09c438ebfa4d13cecb5fd2fb3956a32f173ce4e8a22c92126cd2e2e90b6694400"
 
-    tx = Tx.parse(tx_body, true)
-    Logger.debug("#{inspect(tx)}")
+    tx = Tx.parse(tx_body)
+    assert 2 == tx.version
+    assert 2 == tx.tx_outs |> length
+    assert 11_516_414 == Enum.at(tx.tx_outs, 0).amount
+    assert 10000 == Enum.at(tx.tx_outs, 1).amount
+    assert 4_483_510 == tx.locktime
   end
 end

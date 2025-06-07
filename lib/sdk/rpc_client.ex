@@ -70,4 +70,21 @@ defmodule Sdk.RpcClient do
       {:error, reason} -> {:error, "Could not encode json #{inspect(reason)}"}
     end
   end
+
+  @doc """
+    # hexstring - This is your fully signed, serialized transaction in hexadecimal format.
+    # maxfeerate - numeric, optional.
+  """
+  def send_raw_transaction(%__MODULE__{} = rpc, serialized_tx, params \\ [])
+      when is_binary(serialized_tx) do
+    method = "sendrawtransaction"
+    id = "swaga"
+    # Setting to 0 disable this check
+    max_fee_rate = Keyword.get(params, :maxfeerate, 0)
+
+    case build_request(method, id, [serialized_tx, max_fee_rate]) do
+      {:ok, encoded} -> send_request(rpc, encoded)
+      {:error, reason} -> {:error, "Could not encode json #{inspect(reason)}"}
+    end
+  end
 end

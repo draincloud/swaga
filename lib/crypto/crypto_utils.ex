@@ -6,17 +6,25 @@ defmodule CryptoUtils do
   end
 
   # Two Rounds of sha256
-  def double_hash256(data) do
+  def double_hash256(data, output_type \\ :int) do
     # Compute SHA-256 hash
     # Convert the binary hash to an integer using big-endian
-    data
-    |> hash256()
-    |> hash256()
-    |> :binary.decode_unsigned(:big)
+    data =
+      data
+      |> hash256()
+      |> hash256()
+
+    case output_type do
+      :int -> data |> :binary.decode_unsigned(:big)
+      :bin -> data
+    end
   end
 
-  def hash256(data) do
-    :crypto.hash(:sha256, data)
+  def hash256(data, output_type \\ :bin) do
+    case output_type do
+      :int -> {:error, "Not supported"}
+      :bin -> :crypto.hash(:sha256, data)
+    end
   end
 
   def sha1(data) do

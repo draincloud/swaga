@@ -33,6 +33,10 @@ defmodule PrivateKey do
     end
   end
 
+  def new(secret) when is_binary(secret) do
+    new(:binary.decode_unsigned(secret))
+  end
+
   def new(_secret), do: {:error, :invalid_secret}
 
   @doc """
@@ -64,6 +68,10 @@ defmodule PrivateKey do
       end
 
     %Signature{r: r, s: s}
+  end
+
+  def sign(%PrivateKey{} = pk, z) when is_binary(z) do
+    sign(pk, :binary.decode_unsigned(z))
   end
 
   @doc """

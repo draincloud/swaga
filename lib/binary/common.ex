@@ -49,6 +49,6 @@ defmodule Binary.Common do
   def remove_leading_zeros(bin) when is_binary(bin), do: bin
 
   def convert_to_satoshis(major_unit) do
-    major_unit * 1_000_000_000
+    major_unit * 100_000_000
   end
 end

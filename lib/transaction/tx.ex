@@ -324,7 +324,6 @@ defmodule Tx do
     script_pubkey =
       TxIn.script_pubkey(input) |> Base.decode16!(case: :mixed)
 
-    IEx.pry()
     # Get the signature hash(z)
     # Pass the redeemScript ot the sig_hash method
     z =
@@ -474,7 +473,6 @@ defmodule Tx do
       end)
 
     result = result <> serialized_outputs
-    IEx.pry()
 
     serialized_witnesses =
       Enum.map_join(witnesses, fn witness_stack ->
@@ -505,26 +503,23 @@ defmodule Tx do
     - `{boolean, %Tx{}}` where the boolean indicates if verification passed,
       and the %Tx{} is the updated transaction with the new ScriptSig.
   """
-  def sign_input(%Tx{tx_ins: inputs} = tx, input_index, %PrivateKey{} = private_key)
-      when is_integer(input_index) do
+  def sign_input(
+        %Tx{tx_ins: inputs} = tx,
+        input_index,
+        %PrivateKey{} = private_key,
+        sender_pubkey
+      )
+      when is_integer(input_index) and is_binary(sender_pubkey) do
     # Check for input type
     current_input = Enum.at(inputs, input_index)
 
     z =
       case current_input.type do
         :segwit ->
-          script_hash = TxIn.script_pubkey(current_input)
-
-          <<0x00, _length::binary-size(1), pubkey::binary>> =
-            script_hash
-            |> Base.decode16!(case: :lower)
-
-          IEx.pry()
-
           Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(
             tx,
             input_index,
-            pubkey
+            sender_pubkey |> CryptoUtils.hash160()
           )
 
         :legacy ->
@@ -535,7 +530,6 @@ defmodule Tx do
     # The signature is a combination of the DER signature and the hash type
     sig = der <> :binary.encode_unsigned(@sighash_all, :big)
     sec = private_key.point |> Secp256Point.compressed_sec()
-    IEx.pry()
 
     case current_input.type do
       :segwit ->
@@ -549,7 +543,6 @@ defmodule Tx do
           | witnesses: updated_witnesses_list
         }
 
-        IEx.pry()
         # Add real verify here
         {verify_input(updated_tx_for_segwit, input_index), updated_tx_for_segwit}
 
@@ -616,10 +609,12 @@ defmodule Tx do
     end
   end
 
-  def sign(%__MODULE__{tx_ins: inputs} = initial_tx, %PrivateKey{} = pk) do
+  def sign(%__MODULE__{tx_ins: inputs} = initial_tx, %PrivateKey{} = pk, %BIP32.Xpub{
+        public_key: public_key
+      }) do
     0..(length(inputs) - 1)
     |> Enum.reduce(initial_tx, fn i, tx ->
-      {{:ok}, updated_tx} = sign_input(tx, i, pk)
+      {{:ok}, updated_tx} = sign_input(tx, i, pk, public_key)
       updated_tx
     end)
   end

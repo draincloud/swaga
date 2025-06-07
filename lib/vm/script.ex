@@ -187,13 +187,19 @@ defmodule Script do
 
   # Takes a hash160 and returns the p2pkh ScriptPubKey
   # OP_DUP OP_HASH160 address OP_EQUALVERIFY OP_CHECKSIG
-  def p2pkh_script(public_key_hash) do
+  def p2pkh_script(public_key_hash) when is_binary(public_key_hash) do
+    public_key_hash =
+      case Helpers.is_hex_string?(public_key_hash) do
+        true -> public_key_hash |> Base.decode16!(case: :mixed)
+        false -> public_key_hash
+      end
+
     Script.new([0x76, 0xA9, public_key_hash, 0x88, 0xAC])
   end
 
   # Pay to witness public key hash
   # Same as Pay to Public Key Hash
-  def p2wpkh(public_key_hash) do
+  def p2wpkh(public_key_hash) when is_binary(public_key_hash) do
     public_key_hash =
       case Helpers.is_hex_string?(public_key_hash) do
         true -> public_key_hash |> Base.decode16!(case: :mixed)

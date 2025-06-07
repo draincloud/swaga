@@ -20,8 +20,11 @@ defmodule CryptoUtils do
     end
   end
 
-  def hash256(data) do
-    :crypto.hash(:sha256, data)
+  def hash256(data, output_type \\ :bin) do
+    case output_type do
+      :int -> {:error, "Not supported"}
+      :bin -> :crypto.hash(:sha256, data)
+    end
   end
 
   def sha1(data) do

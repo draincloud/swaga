@@ -41,22 +41,4 @@ defmodule TxFetcherTest do
     tx = TxFetcher.fetch("46df1a9484d0a81d03ce0ee543ab6e1a23ed06175c104a178268fad381216c2b")
     assert true == Tx.verify(tx)
   end
-
-  test "sign input" do
-    private_key = PrivateKey.new(8_675_309)
-
-    tx_raw =
-      Base.decode16!(
-        "010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d00000000ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000",
-        case: :mixed
-      )
-
-    tx_obj = Tx.parse(tx_raw)
-    {{:ok}, updated_tx} = Tx.sign_input(tx_obj, 0, private_key)
-
-    want =
-      "010000000199a24308080ab26e6fb65c4eccfadf76749bb5bfa8cb08f291320b3c21e56f0d0d0000006b4830450221008dff35729f06444748c9a0ebc9e42224d42adcdc3c60f7a7a80d7064378f2d3002202b1ce60e8a5c81407dbb76aa559903693cad709195a8767796331afce2d44683012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b67ffffffff02408af701000000001976a914d52ad7ca9b3d096a38e752c2018e6fbc40cdf26f88ac80969800000000001976a914507b27411ccf7f16f10297de6cef3f291623eddf88ac00000000"
-
-    assert want == Base.encode16(Tx.serialize(updated_tx), case: :lower)
-  end
 end

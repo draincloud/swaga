@@ -60,22 +60,19 @@ defmodule Tx.Segwit.BIP143 do
         sighash_type \\ @sighash_all
       ) do
     case sighash_type do
-      # 1. Serialize hashPrevouts
       @sighash_all ->
         version_le = MathUtils.int_to_little_endian(version, 4)
         hash_prev_outs = calculate_hash_prev_outs(inputs)
         hash_sequence = calculate_hash_sequence(inputs)
 
-        # Calculate the outpoint
-        %TxIn{prev_index: prev_index, prev_tx: prev_tx, sequence: sequence} =
-          input = Enum.at(inputs, input_index)
+        input = Enum.at(inputs, input_index)
+        %TxIn{prev_index: prev_index, prev_tx: prev_tx, sequence: sequence} = input
 
-        #        prev_tx_le = Common.reverse_binary(prev_tx)
+        prev_tx_le = Common.reverse_binary(prev_tx)
         prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
-        outpoint = prev_tx <> prev_index_le
+        outpoint = prev_tx_le <> prev_index_le
 
-        p2wpkh = Script.p2wpkh(public_key_hash) |> Script.serialize()
-        script_code = Tx.encode_varint(byte_size(p2wpkh)) <> p2wpkh
+        script_serialized = Script.p2pkh_script(public_key_hash) |> Script.serialize()
 
         amount = TxIn.value(input) |> MathUtils.int_to_little_endian(8)
 
@@ -84,15 +81,15 @@ defmodule Tx.Segwit.BIP143 do
         locktime_le = locktime |> MathUtils.int_to_little_endian(4)
         sighash_type_le = sighash_type |> MathUtils.int_to_little_endian(4)
 
-        pre_image =
+        pre_image_elixir =
           version_le <>
             hash_prev_outs <>
             hash_sequence <>
             outpoint <>
-            script_code <> amount <> n_sequence <> hash_outputs <> locktime_le <> sighash_type_le
+            script_serialized <>
+            amount <> n_sequence <> hash_outputs <> locktime_le <> sighash_type_le
 
-        # Final sighash
-        CryptoUtils.double_hash256(pre_image, :bin)
+        CryptoUtils.double_hash256(pre_image_elixir, :bin)
 
       _ ->
         {:error, "This sighash is currently not supported"}
@@ -101,11 +98,9 @@ defmodule Tx.Segwit.BIP143 do
 
   defp calculate_hash_prev_outs(tx_ins) when is_list(tx_ins) do
     Enum.map_join(tx_ins, fn %TxIn{prev_tx: prev_tx, prev_index: prev_index} ->
-      # Serialize prev_tx, little_endian
-      #      prev_tx_le = Common.reverse_binary(prev_tx)
-      # Serialize prev_index, 4 bytes
+      prev_tx_le = Common.reverse_binary(prev_tx)
       prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
-      prev_tx <> prev_index_le
+      prev_tx_le <> prev_index_le
     end)
     |> CryptoUtils.double_hash256(:bin)
   end

@@ -15,7 +15,7 @@ defmodule TxIn do
   @type t :: %__MODULE__{
           # Hash of the previous transaction (32 bytes).
           prev_tx: binary(),
-          # Index of the output in the previous tx.
+          # Index of the output in the previous tx. Stored in big-endian
           prev_index: non_neg_integer(),
           # The unlocking script.
           script_sig: Script.t(),
@@ -153,13 +153,12 @@ defmodule TxIn do
     outputs =
       case RpcClient.get_raw_transaction(rpc, prev_tx) do
         {:ok, tx} ->
+          IEx.pry()
           Map.get(tx, "result") |> Map.get("vout")
 
         reason ->
           {:error, reason}
       end
-
-    IEx.pry()
 
     Enum.at(outputs, prev_index) |> Map.get("scriptPubKey") |> Map.get("hex")
   end

@@ -1,6 +1,7 @@
 require Logger
 
 defmodule BloomFilter do
+  alias Transaction
   import Bitwise
 
   # since erlang/elixir integers are variable-length we have to guarantee them
@@ -78,7 +79,7 @@ defmodule BloomFilter do
         flag \\ 1
       ) do
     payload =
-      Tx.encode_varint(size) <>
+      Transaction.encode_varint(size) <>
         filter_bytes(bit_field) <>
         MathUtils.int_to_little_endian(function_count, 4) <>
         MathUtils.int_to_little_endian(tweak, 4) <>

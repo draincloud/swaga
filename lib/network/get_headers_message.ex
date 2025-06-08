@@ -2,6 +2,7 @@ require Logger
 
 defmodule GetHeadersMessage do
   require IEx
+  alias Transaction
   @enforce_keys [:version, :num_hashes, :start_block, :end_block]
   defstruct [:version, :num_hashes, :start_block, :end_block]
   def command(), do: "getheaders"
@@ -31,20 +32,20 @@ defmodule GetHeadersMessage do
         end_block: end_block
       }) do
     header_version = MathUtils.int_to_little_endian(version, 4)
-    header_num_hashes = Tx.encode_varint(num_hashes)
+    header_num_hashes = Transaction.encode_varint(num_hashes)
     start_block = Binary.Common.reverse_binary(start_block) |> Binary.Common.pad_binary(32)
     end_block = Binary.Common.reverse_binary(end_block) |> Binary.Common.pad_binary(32)
     header_version <> header_num_hashes <> start_block <> end_block
   end
 
   def parse(serialized) when is_binary(serialized) do
-    {num_headers, rest} = Tx.read_varint(serialized)
+    {num_headers, rest} = Transaction.read_varint(serialized)
 
     {blocks, _bin} =
       Enum.reduce(0..num_headers, {[], rest}, fn _header, acc ->
         <<block_header::binary-size(80), rest_stream::binary>> = rest
         parsed = Block.parse(block_header)
-        {num_txs, rest} = Tx.read_varint(rest_stream)
+        {num_txs, rest} = Transaction.read_varint(rest_stream)
 
         # the number of transactions is always 0
         if num_txs != 0 do

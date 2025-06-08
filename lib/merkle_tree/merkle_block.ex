@@ -1,5 +1,6 @@
 defmodule MerkleBlock do
   import Bitwise
+  alias Transaction
 
   @moduledoc """
   Represents a Merkle Block, used by Simplified Payment Verification (SPV) clients.
@@ -101,7 +102,7 @@ defmodule MerkleBlock do
 
     txs_count = MathUtils.little_endian_to_int(number_of_txs)
     # We read the number of hashes, and all is left is hashes and flags
-    {hashes_count, _} = Tx.read_varint(number_of_hashes)
+    {hashes_count, _} = Transaction.read_varint(number_of_hashes)
     <<hashes::binary-size(32 * hashes_count), flag_bytes::binary>> = rest
 
     {parsed_hashes, _} =
@@ -110,7 +111,7 @@ defmodule MerkleBlock do
         {acc ++ [hash |> Binary.Common.reverse_binary()], rest}
       end)
 
-    {flags_count, bin_flags} = Tx.read_varint(flag_bytes)
+    {flags_count, bin_flags} = Transaction.read_varint(flag_bytes)
 
     <<flags::binary-size(flags_count), _::binary>> = bin_flags
 

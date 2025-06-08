@@ -1,7 +1,9 @@
-defmodule Tx.Segwit.BIP143Test do
+defmodule Transaction.Segwit.BIP143Test do
   use ExUnit.Case
-  alias Tx.Segwit.BIP143
-  alias Tx
+  alias Transaction.Segwit.BIP143
+  alias Transaction
+  alias Transaction.Output
+  alias Transaction.Input
   alias TxIn
   alias CryptoUtils
 
@@ -18,19 +20,19 @@ defmodule Tx.Segwit.BIP143Test do
       |> Base.decode16!(case: :lower)
 
     prev_index = 0
-    tx_in = TxIn.new(prev_tx, prev_index, Script.new(), 0xFFFFFFFF, :segwit)
+    tx_in = Input.new(prev_tx, prev_index, Script.new(), 0xFFFFFFFF, :segwit)
 
     change_h160 = Base58.decode(receiver_address)
     change_script = Script.p2pkh_script(change_h160)
     change_amount = trunc(8000)
-    change_output = TxOut.new(change_amount, change_script)
+    change_output = Output.new(change_amount, change_script)
 
     target_amount = trunc(1000)
     target_h160 = Base58.decode(receiver_address)
     target_script = Script.p2pkh_script(target_h160)
-    target_output = TxOut.new(target_amount, target_script)
+    target_output = Output.new(target_amount, target_script)
 
-    tx = Tx.new(2, [tx_in], [change_output, target_output], 0)
+    tx = Transaction.new(2, [tx_in], [change_output, target_output], 0)
 
     assert "362dbabf30ae67339d703ae801c389b6af64cfddb113e216b3f325fc2d9018a9" ==
              BIP143.sig_hash_bip143_p2wpkh(tx, 0, sender_pubkey_hash)

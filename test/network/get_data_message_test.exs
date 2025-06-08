@@ -65,7 +65,7 @@ defmodule GetDataMessageTest do
       end)
 
     {:ok} = BitcoinNode.send(node, data_message, GetDataMessage)
-    merkle = BitcoinNode.wait_for(node, [], Tx.command())
+    merkle = BitcoinNode.wait_for(node, [], Transaction.command())
     Logger.debug("data_message #{inspect(merkle)}")
   end
 end

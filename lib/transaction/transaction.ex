@@ -1,8 +1,9 @@
-defmodule Tx do
+defmodule Transaction do
   require IEx
   alias Helpers
-  alias TxIn
-  alias TxOut
+  alias Transaction.Input
+  alias Transaction.Output
+  alias Transaction.Segwit.BIP143
 
   @moduledoc """
   Represents a Bitcoin transaction, including inputs, outputs, and metadata.
@@ -10,8 +11,8 @@ defmodule Tx do
   """
   @type t :: %__MODULE__{
           version: non_neg_integer(),
-          tx_ins: [TxIn.t()],
-          tx_outs: [TxOut.t()],
+          tx_ins: [Input.t()],
+          tx_outs: [Output.t()],
           locktime: non_neg_integer(),
           witnesses: [[binary()]]
         }
@@ -56,8 +57,8 @@ defmodule Tx do
       )
       when is_integer(version) and version > 0 and is_list(tx_ins) and is_list(tx_outs) and
              is_integer(locktime) and locktime >= 0 do
-    if Enum.all?(tx_ins, &is_struct(&1, TxIn)) and Enum.all?(tx_outs, &is_struct(&1, TxOut)) do
-      %Tx{
+    if Enum.all?(tx_ins, &is_struct(&1, Input)) and Enum.all?(tx_outs, &is_struct(&1, Output)) do
+      %__MODULE__{
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
@@ -158,7 +159,7 @@ defmodule Tx do
 
     {inputs, final_rest} =
       Enum.reduce(1..inputs_count, {[], tx_rest}, fn _, {acc, bin} ->
-        {new_bin, input} = TxIn.parse(bin)
+        {new_bin, input} = Input.parse(bin)
         {[input | acc], new_bin}
       end)
 
@@ -166,7 +167,7 @@ defmodule Tx do
 
     {outputs, tx_rest_after_outputs} =
       Enum.reduce(1..outputs_count, {[], tx_rest}, fn _, {acc, bin} ->
-        {new_bin, output} = TxOut.parse(bin)
+        {new_bin, output} = Output.parse(bin)
         {[output | acc], new_bin}
       end)
 
@@ -195,7 +196,7 @@ defmodule Tx do
     <<raw_locktime::binary-size(4), _::binary>> = tx_rest_after_witness
     locktime = MathUtils.little_endian_to_int(raw_locktime)
 
-    %Tx{
+    %__MODULE__{
       version: MathUtils.little_endian_to_int(version_bin),
       tx_ins: inputs |> Enum.reverse(),
       tx_outs: outputs |> Enum.reverse(),
@@ -217,7 +218,7 @@ defmodule Tx do
     - {:error, reason} if invalid.
   """
   def fee(%{tx_ins: inputs, tx_outs: outputs}) do
-    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + TxIn.value(input) end)
+    input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + Input.value(input) end)
     output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
 
     fee = input_sum - output_sum
@@ -249,7 +250,7 @@ defmodule Tx do
     - {:error, reason} if invalid.
   """
   def sig_hash(
-        %Tx{
+        %__MODULE__{
           version: version,
           tx_ins: inputs,
           tx_outs: outputs,
@@ -280,14 +281,14 @@ defmodule Tx do
           if i == input_index do
             # If the RedeemScript (p2sh script) was passed in -> that's the ScriptSig
             # otherwise the previous tx's ScriptPubkey is the ScriptSig
-            TxIn.script_pubkey(inp)
+            Input.script_pubkey(inp)
           else
             # Otherwise, the ScriptSig is nil
             nil
           end
 
-        new_input = TxIn.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence, :legacy)
-        TxIn.serialize(new_input)
+        new_input = Input.new(inp.prev_tx, inp.prev_index, script_pubkey, inp.sequence, :legacy)
+        Input.serialize(new_input)
       end)
 
     signature = signature <> inputs_signatures
@@ -295,7 +296,7 @@ defmodule Tx do
 
     serialized_outputs =
       Enum.reduce(outputs, "", fn output, acc ->
-        acc <> TxOut.serialize(output)
+        acc <> Output.serialize(output)
       end)
 
     signature = signature <> serialized_outputs
@@ -315,21 +316,21 @@ defmodule Tx do
     - `true` if the signature is valid.
     - `false` otherwise.
   """
-  def verify_input(%Tx{tx_ins: inputs} = tx, input_index)
+  def verify_input(%__MODULE__{tx_ins: inputs} = tx, input_index)
       when is_integer(input_index) and
              is_list(inputs) and length(inputs) > 0 do
     # Get the relevant input
     input = Enum.at(inputs, input_index)
     # Grab the previous ScriptPubKey
     script_pubkey =
-      TxIn.script_pubkey(input) |> Base.decode16!(case: :mixed)
+      Input.script_pubkey(input) |> Base.decode16!(case: :mixed)
 
     # Get the signature hash(z)
     # Pass the redeemScript ot the sig_hash method
     z =
       case input.type do
         :segwit ->
-          Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(tx, input_index, script_pubkey)
+          BIP143.sig_hash_bip143_p2wpkh(tx, input_index, script_pubkey)
 
         :legacy ->
           sig_hash(tx, input_index)
@@ -352,7 +353,7 @@ defmodule Tx do
     - `true` if the transaction is valid.
     - `false` otherwise.
   """
-  def verify(%Tx{tx_ins: inputs} = tx) when is_list(inputs) and length(inputs) > 0 do
+  def verify(%__MODULE__{tx_ins: inputs} = tx) when is_list(inputs) and length(inputs) > 0 do
     case fee(tx) do
       {:error, _reason} ->
         false
@@ -374,9 +375,9 @@ defmodule Tx do
   ## Returns
     - binary() representing the transaction hash.
   """
-  def hash(%Tx{} = tx) do
+  def hash(%__MODULE__{} = tx) do
     tx
-    |> Tx.serialize()
+    |> serialize()
     |> CryptoUtils.hash256()
     |> CryptoUtils.hash256()
     |> :binary.bin_to_list()
@@ -393,11 +394,11 @@ defmodule Tx do
   ## Returns
     - String with the lowercase hex ID.
   """
-  def id(%Tx{} = tx) do
+  def id(%__MODULE__{} = tx) do
     tx |> hash |> Base.encode16(case: :lower)
   end
 
-  def serialize(tx, type \\ :legacy) when is_struct(tx, Tx) do
+  def serialize(tx, type \\ :legacy) when is_struct(tx, __MODULE__) do
     case type do
       :legacy -> serialize_legacy(tx)
       :segwit -> serialize_segwit(tx)
@@ -414,7 +415,7 @@ defmodule Tx do
   ## Returns
     - binary() with the serialized transaction.
   """
-  def serialize_legacy(%Tx{
+  def serialize_legacy(%__MODULE__{
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
@@ -430,20 +431,20 @@ defmodule Tx do
     # Serialize each input
     serialized_inputs =
       Enum.map_join(tx_ins, fn inp ->
-        TxIn.serialize(inp)
+        Input.serialize(inp)
       end)
 
     result = result <> serialized_inputs <> encode_varint(length(tx_outs))
 
     serialized_outputs =
       Enum.map_join(tx_outs, fn out ->
-        TxOut.serialize(out)
+        Output.serialize(out)
       end)
 
     result <> serialized_outputs <> MathUtils.int_to_little_endian(locktime, 4)
   end
 
-  def serialize_segwit(%Tx{
+  def serialize_segwit(%__MODULE__{
         version: version,
         tx_ins: tx_ins,
         tx_outs: tx_outs,
@@ -462,14 +463,14 @@ defmodule Tx do
     # Serialize each input
     serialized_inputs =
       Enum.map_join(tx_ins, fn inp ->
-        TxIn.serialize(inp)
+        Input.serialize(inp)
       end)
 
     result = result <> serialized_inputs <> encode_varint(length(tx_outs))
 
     serialized_outputs =
       Enum.map_join(tx_outs, fn out ->
-        TxOut.serialize(out)
+        Output.serialize(out)
       end)
 
     result = result <> serialized_outputs
@@ -504,7 +505,7 @@ defmodule Tx do
       and the %Tx{} is the updated transaction with the new ScriptSig.
   """
   def sign_input(
-        %Tx{tx_ins: inputs} = tx,
+        %__MODULE__{tx_ins: inputs} = tx,
         input_index,
         %PrivateKey{} = private_key,
         sender_pubkey
@@ -516,7 +517,7 @@ defmodule Tx do
     z =
       case current_input.type do
         :segwit ->
-          Tx.Segwit.BIP143.sig_hash_bip143_p2wpkh(
+          BIP143.sig_hash_bip143_p2wpkh(
             tx,
             input_index,
             sender_pubkey |> CryptoUtils.hash160()
@@ -538,7 +539,7 @@ defmodule Tx do
         updated_witnesses_list =
           List.replace_at(tx.witnesses, input_index, witness_stack_for_this_input)
 
-        updated_tx_for_segwit = %Tx{
+        updated_tx_for_segwit = %__MODULE__{
           tx
           | witnesses: updated_witnesses_list
         }
@@ -554,13 +555,13 @@ defmodule Tx do
           Enum.with_index(tx.tx_ins)
           |> Enum.map(fn {input, i} ->
             if i == input_index do
-              %TxIn{input | script_sig: script_sig}
+              %Input{input | script_sig: script_sig}
             else
               input
             end
           end)
 
-        updated = %Tx{tx | tx_ins: updated_inputs}
+        updated = %__MODULE__{tx | tx_ins: updated_inputs}
         {verify_input(updated, input_index), updated}
     end
   end
@@ -577,13 +578,13 @@ defmodule Tx do
     - `true` if it's a coinbase transaction.
     - `false` otherwise.
   """
-  def is_coinbase(%Tx{tx_ins: inputs}) when is_list(inputs) and length(inputs) == 1 do
+  def is_coinbase(%__MODULE__{tx_ins: inputs}) when is_list(inputs) and length(inputs) == 1 do
     [only_input] = inputs
-    TxIn.is_coinbase(only_input)
+    Input.is_coinbase(only_input)
   end
 
   # Any transaction not having exactly one input cannot be a coinbase.
-  def is_coinbase(%Tx{}) do
+  def is_coinbase(%__MODULE__{}) do
     false
   end
 
@@ -599,7 +600,8 @@ defmodule Tx do
     - integer() (block height) if it's a valid coinbase.
     - `nil` otherwise.
   """
-  def coinbase_height(%Tx{tx_ins: inputs} = tx) when is_list(inputs) and length(inputs) > 0 do
+  def coinbase_height(%__MODULE__{tx_ins: inputs} = tx)
+      when is_list(inputs) and length(inputs) > 0 do
     if is_coinbase(tx) do
       [only_input] = inputs
       [coin_base_height | _] = only_input.script_sig.cmds

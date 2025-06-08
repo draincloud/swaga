@@ -5,8 +5,6 @@ defmodule Sdk.Wallet do
   defstruct [:seed, :xprv, :xpub]
   alias BIP32.Seed
   alias Bech32
-  alias TxIn
-  alias TxOut
 
   @type t :: %__MODULE__{
           seed: binary()

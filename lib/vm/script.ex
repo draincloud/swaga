@@ -200,14 +200,14 @@ defmodule Script do
 
   # Pay to witness public key hash
   # Same as Pay to Public Key Hash
-  def p2wpkh(public_key_hash) when is_binary(public_key_hash) do
+  def p2wpkh(public_key_hash) when is_binary(public_key_hash) and byte_size(public_key_hash) do
     public_key_hash =
       case Helpers.is_hex_string?(public_key_hash) do
         true -> public_key_hash |> Base.decode16!(case: :mixed)
         false -> public_key_hash
       end
 
-    Script.new([0x76, 0xA9, public_key_hash, 0x88, 0xAC])
+    Script.new([0x00, public_key_hash])
   end
 
   # Takes a byte sequence hash160 and returns a p2pkh address string
@@ -234,5 +234,46 @@ defmodule Script do
       end
 
     Base58.encode_base58_checksum(prefix <> hash)
+  end
+
+  # Segwit v1 (Taproot/P2TR) 34 bytes length
+  def identify_script_type(<<0x51, 0x20, _::binary-size(32)>>) do
+    :p2tr
+  end
+
+  # Segwit v0 P2WPKH
+  def identify_script_type(<<0x00, 0x14, _::binary-size(20)>>) do
+    :p2wpkh
+  end
+
+  # Segwit v0 P2PWSH
+  def identify_script_type(<<0x00, 0x20, _::binary-size(32)>>) do
+    :p2wsh
+  end
+
+  # P2SH
+  def identify_script_type(<<0xA9, _::binary-size(22)>> = decoded_script) do
+    # Last byte is `OP_EQUAL`
+    <<0x87, _::binary>> = Binary.Common.reverse_binary(decoded_script)
+    :p2sh
+  end
+
+  # p2pkh
+  def identify_script_type(<<0x76, 0xA9, _::binary-size(22)>> = decoded_script) do
+    # Last bytes are `OP_CHECKSIG`, `OP_EQUALVERIFY`
+    <<0x76, 0x88, _::binary>> = Binary.Common.reverse_binary(decoded_script)
+    :p2pkh
+  end
+
+  # p2pk
+  def identify_script_type(<<0x21, _::binary-size(34)>> = decoded_script) do
+    <<0xAC, _::binary>> = Binary.Common.reverse_binary(decoded_script)
+    :p2pk
+  end
+
+  # p2pk
+  def identify_script_type(<<0x41, _::binary-size(66)>> = decoded_script) do
+    <<0xAC, _::binary>> = Binary.Common.reverse_binary(decoded_script)
+    :p2pk
   end
 end

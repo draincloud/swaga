@@ -217,7 +217,7 @@ defmodule Transaction do
     - integer() if valid.
     - {:error, reason} if invalid.
   """
-  def fee(%{tx_ins: inputs, tx_outs: outputs}) do
+  def fee(%__MODULE__{tx_ins: inputs, tx_outs: outputs}) do
     input_sum = Enum.reduce(inputs, 0, fn input, acc -> acc + Input.value(input) end)
     output_sum = Enum.reduce(outputs, 0, fn output, acc -> acc + output.amount end)
 
@@ -330,7 +330,7 @@ defmodule Transaction do
     z =
       case input.type do
         :segwit ->
-          BIP143.sig_hash_bip143_p2wpkh(tx, input_index, script_pubkey)
+          BIP143.sig_hash(tx, input_index, script_pubkey)
 
         :legacy ->
           sig_hash(tx, input_index)
@@ -517,7 +517,7 @@ defmodule Transaction do
     z =
       case current_input.type do
         :segwit ->
-          BIP143.sig_hash_bip143_p2wpkh(
+          BIP143.sig_hash(
             tx,
             input_index,
             sender_pubkey |> CryptoUtils.hash160()

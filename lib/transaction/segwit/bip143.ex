@@ -48,7 +48,7 @@ defmodule Transaction.Segwit.BIP143 do
   - A 32-byte binary representing the signature hash to be signed.
   - Or `{:error, reason}` if an unsupported `sighash_type` is provided (based on current implementation).
   """
-  def sig_hash_bip143_p2wpkh(
+  def sig_hash(
         %Transaction{
           version: version,
           tx_ins: inputs,

@@ -29,7 +29,7 @@ defmodule GetDataMessage do
   is a Merkle block, and 4 is a compact block .
   """
   def serialize(%GetDataMessage{data: data}) do
-    number_of_items = Tx.encode_varint(length(data))
+    number_of_items = Transaction.encode_varint(length(data))
 
     result =
       Enum.reduce(data, number_of_items, fn {data_type, identifier}, acc ->

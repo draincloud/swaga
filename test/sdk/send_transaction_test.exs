@@ -3,8 +3,9 @@ defmodule Sdk.SendTransactionTest do
   use ExUnit.Case
   require IEx
   alias Sdk.Wallet
-  alias TxIn
-  alias TxOut
+  alias Transaction.Input
+  alias Transaction.Output
+  alias Transaction
   alias Sdk.RpcClient
   @moduletag :skip
 
@@ -30,7 +31,7 @@ defmodule Sdk.SendTransactionTest do
     target_amount = 1000
 
     prev_index = 0
-    tx_in = TxIn.new(prev_tx, prev_index, Script.new([]), 0xFFFFFFFF, :segwit)
+    tx_in = Input.new(prev_tx, prev_index, Script.new([]), 0xFFFFFFFF, :segwit)
 
     # 21 bytes of data: If the decoded data (including the witness version) is 21 bytes long, it is a P2WPKH address (1-byte version + 20-byte key hash).
     # 33 bytes of data: If the decoded data is 33 bytes long, it is a P2WSH address (1-byte version + 32-byte script hash).
@@ -45,21 +46,25 @@ defmodule Sdk.SendTransactionTest do
     change_script = Script.new([witness_version, witness_program |> :erlang.list_to_binary()])
 
     change_amount = trunc(change_amount)
-    change_output = TxOut.new(change_amount, change_script)
+    change_output = Output.new(change_amount, change_script)
 
     target_amount = trunc(target_amount)
     target_h160 = Base58.decode(receiver_address)
     target_script = Script.p2pkh_script(target_h160)
-    target_output = TxOut.new(target_amount, target_script)
+    target_output = Output.new(target_amount, target_script)
 
     private_key = sender.xprv.private_key |> PrivateKey.new()
     public_key = sender.xpub
     Logger.debug("receiver #{inspect(sender.xprv.private_key |> Integer.to_string(16))}")
-    tx = Tx.new(2, [tx_in], [change_output, target_output], 0) |> Tx.sign(private_key, public_key)
+
+    tx =
+      Transaction.new(2, [tx_in], [change_output, target_output], 0)
+      |> Transaction.sign(private_key, public_key)
+
     #    Logger.debug("Signed tx #{inspect(tx)}")
     #    Logger.debug("Private key #{inspect(private_key.secret)}")
     #    Logger.debug("Private key #{inspect(sender.xpub.public_key |> Base.encode16(case: :lower))}")
-    tx_build = Tx.serialize(tx, :segwit) |> Base.encode16(case: :lower)
+    tx_build = Transaction.serialize(tx, :segwit) |> Base.encode16(case: :lower)
     rpc = RpcClient.new()
     #    Logger.debug(tx_build)
 

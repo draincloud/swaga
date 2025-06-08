@@ -1,8 +1,8 @@
-defmodule Tx.Segwit.BIP143 do
+defmodule Transaction.Segwit.BIP143 do
   require IEx
-  alias TxIn
-  alias TxOut
-  alias Tx
+  alias Transaction.Input
+  alias Transaction.Output
+  alias Transaction
   alias CryptoUtils
   alias Script
   alias MathUtils
@@ -49,7 +49,7 @@ defmodule Tx.Segwit.BIP143 do
   - Or `{:error, reason}` if an unsupported `sighash_type` is provided (based on current implementation).
   """
   def sig_hash_bip143_p2wpkh(
-        %Tx{
+        %Transaction{
           version: version,
           tx_ins: inputs,
           tx_outs: outputs,
@@ -66,7 +66,7 @@ defmodule Tx.Segwit.BIP143 do
         hash_sequence = calculate_hash_sequence(inputs)
 
         input = Enum.at(inputs, input_index)
-        %TxIn{prev_index: prev_index, prev_tx: prev_tx, sequence: sequence} = input
+        %Input{prev_index: prev_index, prev_tx: prev_tx, sequence: sequence} = input
 
         prev_tx_le = Common.reverse_binary(prev_tx)
         prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
@@ -74,7 +74,7 @@ defmodule Tx.Segwit.BIP143 do
 
         script_serialized = Script.p2pkh_script(public_key_hash) |> Script.serialize()
 
-        amount = TxIn.value(input) |> MathUtils.int_to_little_endian(8)
+        amount = Input.value(input) |> MathUtils.int_to_little_endian(8)
 
         n_sequence = sequence |> MathUtils.int_to_little_endian(4)
         hash_outputs = calculate_hash_outputs(outputs)
@@ -97,7 +97,7 @@ defmodule Tx.Segwit.BIP143 do
   end
 
   defp calculate_hash_prev_outs(tx_ins) when is_list(tx_ins) do
-    Enum.map_join(tx_ins, fn %TxIn{prev_tx: prev_tx, prev_index: prev_index} ->
+    Enum.map_join(tx_ins, fn %Input{prev_tx: prev_tx, prev_index: prev_index} ->
       prev_tx_le = Common.reverse_binary(prev_tx)
       prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
       prev_tx_le <> prev_index_le
@@ -106,15 +106,15 @@ defmodule Tx.Segwit.BIP143 do
   end
 
   defp calculate_hash_outputs(tx_outs) when is_list(tx_outs) do
-    Enum.map_join(tx_outs, fn %TxOut{} = output ->
-      TxOut.serialize(output)
+    Enum.map_join(tx_outs, fn %Output{} = output ->
+      Output.serialize(output)
     end)
     |> CryptoUtils.double_hash256(:bin)
   end
 
   defp calculate_hash_sequence(tx_ins) when is_list(tx_ins) do
     n_sequence =
-      Enum.map_join(tx_ins, fn %TxIn{sequence: sequence} ->
+      Enum.map_join(tx_ins, fn %Input{sequence: sequence} ->
         MathUtils.int_to_little_endian(sequence, 4)
       end)
 

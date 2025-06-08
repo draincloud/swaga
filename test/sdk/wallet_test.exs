@@ -3,8 +3,6 @@ defmodule Sdk.WalletTest do
   use ExUnit.Case
   require IEx
   alias Sdk.Wallet
-  alias TxIn
-  alias TxOut
 
   test "mnemonic generate" do
     mnemonic_list = Wallet.generate_mnemonic()

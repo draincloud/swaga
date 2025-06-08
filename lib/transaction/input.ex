@@ -1,8 +1,9 @@
-defmodule TxIn do
+defmodule Transaction.Input do
   require IEx
   require Logger
   alias Binary.Common
   alias Sdk.RpcClient
+  alias Transaction
 
   @moduledoc """
   Represents a single input in a Bitcoin transaction.
@@ -48,7 +49,7 @@ defmodule TxIn do
   is initially empty and the sequence number is standard.
   """
   def new(prev_tx, prev_index) do
-    %TxIn{
+    %__MODULE__{
       prev_tx: prev_tx,
       prev_index: prev_index,
       script_sig: Script.new(),
@@ -61,7 +62,7 @@ defmodule TxIn do
   Creates a new `TxIn` with a specified `script_sig` and `sequence`.
   """
   def new(prev_tx, prev_index, script_sig, sequence, type) do
-    %TxIn{
+    %__MODULE__{
       prev_tx: prev_tx,
       prev_index: prev_index,
       script_sig: script_sig,
@@ -73,7 +74,7 @@ defmodule TxIn do
   @doc """
   Serializes a `TxIn` into the Bitcoin wire format (binary).
   """
-  def serialize(%TxIn{
+  def serialize(%__MODULE__{
         prev_tx: prev_tx,
         prev_index: prev_index,
         script_sig: script_sig,
@@ -146,7 +147,7 @@ defmodule TxIn do
 
   This is necessary to verify the `script_sig`. It returns `script`
   """
-  def script_pubkey(%TxIn{prev_tx: prev_tx, prev_index: prev_index}) do
+  def script_pubkey(%__MODULE__{prev_tx: prev_tx, prev_index: prev_index}) do
     rpc = RpcClient.new()
     prev_tx = if is_binary(prev_tx), do: Base.encode16(prev_tx), else: prev_tx
 
@@ -168,7 +169,7 @@ defmodule TxIn do
 
   Coinbase inputs have a `prev_tx` hash of all zeros and a `prev_index` of 0xFFFFFFFF.
   """
-  def is_coinbase(%TxIn{prev_tx: prev_tx, prev_index: prev_index})
+  def is_coinbase(%__MODULE__{prev_tx: prev_tx, prev_index: prev_index})
       when is_binary(prev_tx) and is_integer(prev_index) do
     cond do
       prev_index == 0xFFFFFFFF and prev_tx == :binary.copy(<<00>>, 32) -> true

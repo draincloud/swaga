@@ -1,6 +1,7 @@
 require Logger
 
 defmodule HeadersMessage do
+  alias Transaction
   @enforce_keys [:blocks]
   defstruct [:blocks]
   def command, do: "headers"
@@ -10,14 +11,14 @@ defmodule HeadersMessage do
   end
 
   def parse(serialized) when is_binary(serialized) do
-    {num_headers, rest} = Tx.read_varint(serialized)
+    {num_headers, rest} = Transaction.read_varint(serialized)
 
     {blocks, _bin} =
       Enum.reduce(1..num_headers, {[], rest}, fn _, {acc, bin_to_read} ->
         # Get the block header
         <<block_header::binary-size(80), rest_stream::binary>> = bin_to_read
         parsed = Block.parse(block_header)
-        {num_txs, rest} = Tx.read_varint(rest_stream)
+        {num_txs, rest} = Transaction.read_varint(rest_stream)
 
         # the number of transactions is always 0
         if num_txs != 0 do

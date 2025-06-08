@@ -8,7 +8,7 @@ defmodule VM.Script.P2SH do
          new_stack = updated_stack ++ [h160],
          {:ok, updated_stack} <- VM.op_equal(new_stack),
          {:ok, updated_stack} <- VM.op_verify(updated_stack),
-         redeem_script = Tx.encode_varint(length(cmd)) <> cmd,
+         redeem_script = Transaction.encode_varint(length(cmd)) <> cmd,
          {_, script} <- Script.parse(redeem_script) do
       {cmds ++
          script.cmds, updated_stack}

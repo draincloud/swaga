@@ -1,4 +1,4 @@
-defmodule TxOut do
+defmodule Transaction.Output do
   @moduledoc """
   Represents a single output in a Bitcoin transaction.
 
@@ -26,7 +26,7 @@ defmodule TxOut do
   Creates a new `TxOut`.
   """
   def new(amount, script_pubkey) when is_integer(amount) and is_struct(script_pubkey, Script) do
-    %TxOut{amount: amount, script_pubkey: script_pubkey}
+    %__MODULE__{amount: amount, script_pubkey: script_pubkey}
   end
 
   @doc """
@@ -47,6 +47,6 @@ defmodule TxOut do
     <<raw_amount::binary-size(8), rest::binary>> = s
     amount = MathUtils.little_endian_to_int(raw_amount)
     {rest2, script_pubkey} = Script.parse(rest)
-    {rest2, %TxOut{amount: amount, script_pubkey: script_pubkey}}
+    {rest2, %__MODULE__{amount: amount, script_pubkey: script_pubkey}}
   end
 end

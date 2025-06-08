@@ -1,5 +1,6 @@
 defmodule Script do
   alias Helpers
+  alias Transaction
 
   @enforce_keys [
     :cmds
@@ -24,7 +25,7 @@ defmodule Script do
   def new(), do: %Script{cmds: []}
 
   def parse(s) when is_binary(s) do
-    {length, rest} = Tx.read_varint(s)
+    {length, rest} = Transaction.read_varint(s)
     cmds = []
     count = 0
 
@@ -119,7 +120,7 @@ defmodule Script do
 
   def serialize(%Script{} = script) do
     serialized_script = raw_serialize(script)
-    Tx.encode_varint(byte_size(serialized_script)) <> serialized_script
+    Transaction.encode_varint(byte_size(serialized_script)) <> serialized_script
   end
 
   def raw_serialize(%{cmds: cmds}) do

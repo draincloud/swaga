@@ -1,5 +1,7 @@
 defmodule TxTest do
-  alias Tx
+  alias Transaction
+  alias Transaction.Output
+  alias Transaction.Input
   require Logger
   use ExUnit.Case
 
@@ -10,7 +12,7 @@ defmodule TxTest do
         case: :mixed
       )
 
-    assert Tx.parse(raw_tx).version == 1
+    assert Transaction.parse(raw_tx).version == 1
   end
 
   test "parse inputs" do
@@ -20,7 +22,7 @@ defmodule TxTest do
         case: :mixed
       )
 
-    %Tx{version: ver, tx_ins: inputs} = Tx.parse(raw_tx)
+    %Transaction{version: ver, tx_ins: inputs} = Transaction.parse(raw_tx)
     assert ver == 1
     assert length(inputs) == 1
 
@@ -49,7 +51,7 @@ defmodule TxTest do
         case: :mixed
       )
 
-    %Tx{tx_outs: outputs} = Tx.parse(raw_tx)
+    %Transaction{tx_outs: outputs} = Transaction.parse(raw_tx)
     assert length(outputs) == 2
     [first_output | rest_outputs] = outputs
     want = 32_454_049
@@ -70,7 +72,7 @@ defmodule TxTest do
         case: :mixed
       )
 
-    %Tx{locktime: locktime} = Tx.parse(raw_tx)
+    %Transaction{locktime: locktime} = Transaction.parse(raw_tx)
     assert locktime == 410_393
   end
 
@@ -94,17 +96,17 @@ defmodule TxTest do
       )
 
     prev_index = 13
-    tx_in = TxIn.new(prev_tx, prev_index)
+    tx_in = Input.new(prev_tx, prev_index)
     change_amount = trunc(0.33 * 100_000_000)
     change_h160 = Base58.decode("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
     change_script = Script.p2pkh_script(change_h160)
-    change_output = TxOut.new(change_amount, change_script)
+    change_output = Output.new(change_amount, change_script)
     target_amount = trunc(0.1 * 100_000_000)
     target_h160 = Base58.decode("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
     target_script = Script.p2pkh_script(target_h160)
-    target_output = TxOut.new(target_amount, target_script)
-    tx = Tx.new(1, [tx_in], [change_output, target_output], 0, true)
-    id = Tx.id(tx)
+    target_output = Output.new(target_amount, target_script)
+    tx = Transaction.new(1, [tx_in], [change_output, target_output], 0, true)
+    id = Transaction.id(tx)
     assert id == "cd30a8da777d28ef0e61efe68a9f7c559c1d3e5bcd7b265c850ccb4068598d11"
   end
 
@@ -115,9 +117,9 @@ defmodule TxTest do
         case: :mixed
       )
 
-    tx = Tx.parse(raw_tx)
-    assert Tx.is_coinbase(tx) == false
-    assert Tx.serialize(tx) == raw_tx
+    tx = Transaction.parse(raw_tx)
+    assert Transaction.is_coinbase(tx) == false
+    assert Transaction.serialize(tx) == raw_tx
   end
 
   test "is_coinbase" do
@@ -127,8 +129,8 @@ defmodule TxTest do
         case: :lower
       )
 
-    tx = Tx.parse(raw_tx)
-    assert Tx.is_coinbase(tx)
+    tx = Transaction.parse(raw_tx)
+    assert Transaction.is_coinbase(tx)
   end
 
   test "coinbase height" do
@@ -138,9 +140,9 @@ defmodule TxTest do
         case: :lower
       )
 
-    tx = Tx.parse(raw_tx)
-    assert Tx.is_coinbase(tx)
-    assert 465_879 == Tx.coinbase_height(tx)
+    tx = Transaction.parse(raw_tx)
+    assert Transaction.is_coinbase(tx)
+    assert 465_879 == Transaction.coinbase_height(tx)
   end
 
   test "nil coinbase height" do
@@ -150,16 +152,16 @@ defmodule TxTest do
         case: :lower
       )
 
-    tx = Tx.parse(raw_tx)
-    assert false == Tx.is_coinbase(tx)
-    assert nil == Tx.coinbase_height(tx)
+    tx = Transaction.parse(raw_tx)
+    assert false == Transaction.is_coinbase(tx)
+    assert nil == Transaction.coinbase_height(tx)
   end
 
   test "parse SEGWIT testnet transaction id: eb98b02392caa172fd1a2e4e91c8a581cd333e3e39fe9a9969afa64ab5c31673" do
     tx_body =
       "0200000000010144fe8feb6464f806f12d39e7acbb43564d7af87d72dea78fef80eed30e407b310100000000fdffffff02feb9af0000000000160014a34874fcb2e92e33014383b842456b486fb3acfb102700000000000016001449a548c3bc6fd00c1e6f9d9c0080f10219f7342202473044022000b67441ebbbaab8172499e792d28bb8e535e6afa0f70764c1060e57f5c75525022045b86c1c98a75948960215cd5221c0db8871f8d2dce58b5999de8ade15d15403012102857892c09c438ebfa4d13cecb5fd2fb3956a32f173ce4e8a22c92126cd2e2e90b6694400"
 
-    tx = Tx.parse(tx_body)
+    tx = Transaction.parse(tx_body)
     assert 2 == tx.version
     assert 2 == tx.tx_outs |> length
     assert 11_516_414 == Enum.at(tx.tx_outs, 0).amount

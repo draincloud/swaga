@@ -115,7 +115,9 @@ defmodule VersionMessage do
     ser_sender_port = <<sender_port::unsigned-big-integer-16>>
     ser_result = ser_result <> ser_services_sender <> ip_v4_sender_address <> ser_sender_port
     # nonce + UserAgent
-    ser_result = ser_result <> nonce <> Tx.encode_varint(byte_size(user_agent)) <> user_agent
+    ser_result =
+      ser_result <> nonce <> Transaction.encode_varint(byte_size(user_agent)) <> user_agent
+
     # Latest block is 4 bytes
     ser_result = ser_result <> MathUtils.int_to_little_endian(latest_block, 4)
 

@@ -56,9 +56,11 @@ defmodule Transaction.Segwit.BIP143 do
           locktime: locktime
         },
         input_index,
-        public_key_hash,
+        script,
+        amount,
         sighash_type \\ @sighash_all
-      ) do
+      )
+      when is_integer(input_index) and is_struct(script, Script) and is_integer(amount) do
     case sighash_type do
       @sighash_all ->
         version_le = MathUtils.int_to_little_endian(version, 4)
@@ -72,10 +74,10 @@ defmodule Transaction.Segwit.BIP143 do
         prev_index_le = MathUtils.int_to_little_endian(prev_index, 4)
         outpoint = prev_tx_le <> prev_index_le
 
-        script_serialized = Script.p2pkh_script(public_key_hash) |> Script.serialize()
+        script_serialized = script |> Script.serialize()
 
-        amount = Input.value(input) |> MathUtils.int_to_little_endian(8)
-
+        #        amount = Input.value(input) |> MathUtils.int_to_little_endian(8)
+        amount = amount |> MathUtils.int_to_little_endian(8)
         n_sequence = sequence |> MathUtils.int_to_little_endian(4)
         hash_outputs = calculate_hash_outputs(outputs)
         locktime_le = locktime |> MathUtils.int_to_little_endian(4)

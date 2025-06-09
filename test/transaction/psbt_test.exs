@@ -53,5 +53,6 @@ defmodule Transaction.PSBT.Test do
 
     psbt = Transaction.PSBT.new(tx, derive_path)
     updated_psbt = Transaction.PSBT.add_sign_info(psbt)
+    Logger.info("Updated #{inspect(updated_psbt)}")
   end
 end

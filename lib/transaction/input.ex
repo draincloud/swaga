@@ -154,7 +154,6 @@ defmodule Transaction.Input do
     outputs =
       case RpcClient.get_raw_transaction(rpc, prev_tx) do
         {:ok, tx} ->
-          IEx.pry()
           Map.get(tx, "result") |> Map.get("vout")
 
         reason ->
@@ -162,6 +161,24 @@ defmodule Transaction.Input do
       end
 
     Enum.at(outputs, prev_index) |> Map.get("scriptPubKey") |> Map.get("hex")
+  end
+
+  def prev_out(%__MODULE__{prev_tx: prev_tx, prev_index: prev_index}) do
+    rpc = RpcClient.new()
+    prev_tx = if is_binary(prev_tx), do: Base.encode16(prev_tx), else: prev_tx
+
+    outputs =
+      case RpcClient.get_raw_transaction(rpc, prev_tx) do
+        {:ok, tx} ->
+          IEx.pry()
+          Map.get(tx, "result") |> Map.get("vout")
+
+        reason ->
+          {:error, reason}
+      end
+
+    IEx.pry()
+    Enum.at(outputs, prev_index)
   end
 
   @doc """

@@ -35,7 +35,7 @@ defmodule Transaction.Segwit.BIP143Test do
     tx = Transaction.new(2, [tx_in], [change_output, target_output], 0)
 
     assert "362dbabf30ae67339d703ae801c389b6af64cfddb113e216b3f325fc2d9018a9" ==
-             BIP143.sig_hash_bip143_p2wpkh(tx, 0, sender_pubkey_hash)
+             BIP143.sig_hash(tx, 0, sender_pubkey_hash)
              |> Base.encode16(case: :lower)
   end
 end
